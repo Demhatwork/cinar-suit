@@ -65,7 +65,7 @@ textarea{min-height:64px;resize:vertical}
 .floor>span{font-size:12px;color:var(--mute);align-self:center}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .tile{text-align:start;border-radius:10px;padding:10px 12px;border:1px solid var(--line);background:var(--bg);display:grid;gap:2px;border-inline-start:5px solid var(--clean)}
-.tile.dirty{border-inline-start-color:var(--dirty)}.tile.occ{border-inline-start-color:var(--teal);background:var(--tealS)}
+.tile.dirty{border-inline-start-color:var(--dirty)}.tile.soon{border-color:var(--teal);border-inline-start:5px solid var(--teal);border-style:dashed solid dashed solid}.tile.occ{border-inline-start-color:var(--teal);background:var(--tealS)}
 .tile .num{font-size:22px;font-weight:800}
 .tile small{color:var(--mute);font-size:12.5px}
 .list{display:grid;gap:6px}
@@ -197,17 +197,23 @@ const effEnd=r=>r.st==='cikti'&&r.outAt&&r.outAt<r.e?r.outAt:r.e;
 const live=r=>r.st!=='iptal';
 const over=(r,s,e)=>live(r)&&r.s<e&&effEnd(r)>s;
 const clash=(room,s,e,ex)=>list().filter(r=>r.room===room&&r.id!==ex&&over(r,s,e));
-const sameDay=r=>r.s.slice(0,10)===r.e.slice(0,10);
+const DAYMAX=420; // dakika: 7 saat ve altı günübirlik
+const mins=(s,e)=>(new Date(e)-new Date(s))/60000;
+const isDayUse=(s,e)=>mins(s,e)<=DAYMAX;
+const sameDay=r=>isDayUse(r.s,r.e);
+const nightsOf=(s,e)=>{const sd=s.slice(0,10),ed=e.slice(0,10);if(sd>=ed)return[sd];const a=[];for(let d=sd;d<ed;d=addDays(d,1))a.push(d);return a};
+const covers=(r,d)=>!sameDay(r)&&nightsOf(r.s,effEnd(r)).includes(d);
 function price(s,e){
   const P=S.P;if(!s||!e||e<=s)return{t:0,txt:''};
-  const sd=s.slice(0,10),ed=e.slice(0,10);
-  if(sd===ed){const we=[5,6,0].includes(dow(sd));const t=we?+P.gunHs:+P.gunHi;return{t,txt:'Günübirlik · '+(we?'hafta sonu':'hafta içi')+' '+tl(t)}}
-  let hs=0,hi=0;for(let d=sd;d<ed;d=addDays(d,1))[5,6].includes(dow(d))?hs++:hi++;
+  const sd=s.slice(0,10);
+  if(isDayUse(s,e)){const we=[5,6,0].includes(dow(sd));const t=we?+P.gunHs:+P.gunHi;return{t,txt:'Günübirlik · '+(we?'hafta sonu':'hafta içi')+' '+tl(t)}}
+  let hs=0,hi=0;const N=nightsOf(s,e);N.forEach(d=>[5,6].includes(dow(d))?hs++:hi++);
   const t=hs*P.geceHs+hi*P.geceHi;
-  return{t,txt:(hs+hi)+' gece · '+[hi?hi+'×'+tl(P.geceHi):'',hs?hs+'×'+tl(P.geceHs)+' (Cuma/Cumartesi)':''].filter(Boolean).join(' + ')};
+  return{t,txt:(N.length===1&&s.slice(0,10)===e.slice(0,10)?'Tam gün (7 saati geçiyor)':(hs+hi)+' gece')+' · '+[hi?hi+'×'+tl(P.geceHi):'',hs?hs+'×'+tl(P.geceHs)+' (Cuma/Cumartesi)':''].filter(Boolean).join(' + ')};
 }
 const rstate=n=>(S.rooms[n]&&S.rooms[n].state)||'temiz';
-const occNow=n=>{const t=nowS();return list().find(r=>r.room===n&&live(r)&&r.st!=='cikti'&&r.s<=t&&effEnd(r)>t)};
+const occNow=n=>{const t=nowS(),L=list().filter(r=>r.room===n&&live(r));return L.find(r=>r.st==='icerde')||L.find(r=>r.st==='bekliyor'&&r.s<=t&&r.e>t)};
+const comingToday=n=>{const t=nowS();return list().filter(r=>r.room===n&&live(r)&&r.st==='bekliyor'&&r.s>t&&r.s.slice(0,10)===today()).sort((a,b)=>a.s<b.s?-1:1)[0]};
 const nextRes=n=>{const t=nowS();return list().filter(r=>r.room===n&&live(r)&&r.st==='bekliyor'&&r.s>t).sort((a,b)=>a.s<b.s?-1:1)[0]};
 
 /* ---------- görünümler ---------- */
@@ -237,7 +243,7 @@ function vBugun(){
   </section>
   <div class="grid2">
   <section class="panel"><h2>Odalar şu an</h2>${vBoard()}
-   <div class="legend"><span><i style="background:var(--teal)"></i>Dolu</span><span><i style="background:var(--clean)"></i>Boş · temiz</span><span><i style="background:var(--dirty)"></i>Boş · kirli</span></div></section>
+   <div class="legend"><span><i style="background:var(--teal)"></i>Dolu</span><span><i style="background:var(--clean)"></i>Boş · temiz</span><span><i style="background:var(--dirty)"></i>Boş · kirli</span><span><i style="border:1px dashed var(--teal)"></i>Bugün gelecek</span></div></section>
   <section class="panel"><h2>Bugün girecekler</h2>
    <div class="list">${arr.length?arr.map(r=>li(r,'s')).join(''):'<p class="empty">Bugün giriş yok.</p>'}</div>
    <h2 style="margin-top:18px">Bugün çıkacaklar</h2>
@@ -252,11 +258,13 @@ function li(r,k){
 }
 function vBoard(){
   return `<div class="floors">${FLOORS.map((f,i)=>`<div class="floor"><span>${i+1}. kat</span><div class="tiles">${f.map(n=>{
-    const o=occNow(n),nx=nextRes(n),d=rstate(n)==='kirli';
-    const cls=o?'occ':d?'dirty':'';
-    const l1=o?esc(o.name):d?'Boş · kirli':'Boş · temiz';
-    const l2=o?'Çıkış '+(o.e.slice(0,10)===today()?hm(o.e):fd(o.e)+' '+hm(o.e)):nx?'Sonraki: '+(nx.s.slice(0,10)===today()?'bugün ':fd(nx.s)+' ')+hm(nx.s):'Yaklaşan rezervasyon yok';
-    return `<button class="tile ${cls}" data-act="${o?'res':'pickroom'}" data-id="${o?o.id:''}" data-room="${n}"><span><span class="num">${n}</span> <small>${TYPE(n)}</small></span><span>${l1}</span><small>${l2}</small></button>`}).join('')}</div></div>`).join('')}</div>`;
+    const o=occNow(n),c=o?null:comingToday(n),nx=nextRes(n),d=rstate(n)==='kirli';
+    const late=o&&o.st==='icerde'&&o.e<=nowS();
+    const cls=o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'';
+    const l1=o?esc(o.name)+(o.st==='bekliyor'?' <span class="tag t-day">gelmedi</span>':''):c?esc(c.name)+(d?' <span class="tag t-dirty">kirli</span>':''):d?'Boş · kirli':'Boş · temiz';
+    const l2=o?(late?'Çıkış saati geçti ('+hm(o.e)+')':'Çıkış '+(o.e.slice(0,10)===today()?hm(o.e):fd(o.e)+' '+hm(o.e))):c?'Bugün giriş '+hm(c.s):nx?'Sonraki: '+fd(nx.s)+' '+hm(nx.s):'Yaklaşan rezervasyon yok';
+    const R=o||c;
+    return `<button class="tile ${cls}" data-act="${R?'res':'pickroom'}" data-id="${R?R.id:''}" data-room="${n}"><span><span class="num">${n}</span> <small>${TYPE(n)}</small></span><span>${l1}</span><small>${l2}</small></button>`}).join('')}</div></div>`).join('')}</div>`;
 }
 function vResults(q){
   if(q.e<=q.s)return '<p class="err" style="margin-top:12px">Çıkış, girişten sonra olmalı.</p>';
@@ -284,15 +292,15 @@ function vTakvim(){
   const body=ROOMS.map(n=>{
     const R=L.filter(r=>r.room===n);
     return `<tr><th class="rn"><span class="num">${n}</span> <small>${TYPE(n)}</small></th>${days.map(d=>{
-      const nt=R.find(r=>!sameDay(r)&&r.s.slice(0,10)<=d&&d<effEnd(r).slice(0,10));
+      const nt=R.find(r=>covers(r,d));
       const du=R.filter(r=>sameDay(r)&&r.s.slice(0,10)===d);
       let h='';
-      if(nt){const st=nt.s.slice(0,10)===d,en=addDays(d,1)===effEnd(nt).slice(0,10);
-        const lastD=effEnd(nt).slice(0,10)>days[N-1]?addDays(days[N-1],1):effEnd(nt).slice(0,10);let len=0;for(let x=d;x<lastD;x=addDays(x,1))len++;
-        h=`<div class="n ${st?'st':''} ${en?'en':''}" data-act="res" data-id="${nt.id}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
+      if(nt){const NN=nightsOf(nt.s,effEnd(nt)),st=NN[0]===d,en=NN[NN.length-1]===d;
+        const len=NN.filter(x=>x>=d&&x<=days[N-1]).length;
+        h=`<div class="n ${st?'st':''} ${en?'en':''}" data-act="res" data-id="${nt.id}" title="${esc(nt.name)} · ${hm(nt.s)}–${hm(effEnd(nt))}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
       if(du.length)h+=`<div class="dd" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
       return `<td class="${[5,6].includes(dow(d))?'wk':''} ${d===t?'today':''}" data-act="day" data-d="${d}" title="Oda ${n} · ${fd(d)}">${h}</td>`}).join('')}</tr>`}).join('');
-  const occ=days.reduce((a,d)=>a+ROOMS.filter(n=>L.some(r=>r.room===n&&!sameDay(r)&&r.s.slice(0,10)<=d&&d<effEnd(r).slice(0,10))).length,0);
+  const occ=days.reduce((a,d)=>a+ROOMS.filter(n=>L.some(r=>r.room===n&&covers(r,d))).length,0);
   const rev=L.filter(r=>r.s.slice(0,7)===S.month).reduce((a,r)=>a+(+r.price||0),0);
   return `<div class="bar"><button class="btn ghost sm" data-act="mprev" aria-label="Önceki ay">‹</button><h2>${AY[m-1]} ${y}</h2><button class="btn ghost sm" data-act="mnext" aria-label="Sonraki ay">›</button>
   <button class="btn ghost sm" data-act="mnow">Bu ay</button><span class="note" style="margin-inline-start:auto">Doluluk %${Math.round(occ/(N*ROOMS.length)*100)} · Bu ay girişli rezervasyon tutarı ${tl(rev)}</span></div>
@@ -329,13 +337,13 @@ function vAyarlar(){
   return `<div class="grid2" style="margin-top:0">
   <section class="panel"><h2>Fiyatlar</h2>
   <form id="pf" class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <label>Gecelik · hafta içi<input type="number" name="geceHi" value="${P.geceHi}"></label>
-    <label>Gecelik · Cuma/Cumartesi<input type="number" name="geceHs" value="${P.geceHs}"></label>
-    <label>Günübirlik · hafta içi<input type="number" name="gunHi" value="${P.gunHi}"></label>
-    <label>Günübirlik · Cuma/Cmt/Pazar<input type="number" name="gunHs" value="${P.gunHs}"></label>
+    <label>Gecelik / tam gün · hafta içi<input type="number" name="geceHi" value="${P.geceHi}"></label>
+    <label>Gecelik / tam gün · Cuma/Cumartesi<input type="number" name="geceHs" value="${P.geceHs}"></label>
+    <label>Günübirlik (≤7 saat) · hafta içi<input type="number" name="gunHi" value="${P.gunHi}"></label>
+    <label>Günübirlik (≤7 saat) · Cuma/Cmt/Pazar<input type="number" name="gunHs" value="${P.gunHs}"></label>
     <div style="grid-column:1/-1"><button class="btn">Fiyatları kaydet</button></div>
   </form>
-  <p class="note">Kural: giriş ve çıkış aynı gündeyse günübirlik, değilse her gece ayrı fiyatlanır. 1+0 ve 1+1 şimdilik aynı fiyat. Kayıtta tutar elle değiştirilebilir. Yeni fiyat yalnızca yeni rezervasyonlara uygulanır.</p></section>
+  <p class="note">Kural: 7 saat ve altı günübirlik fiyat. 7 saati geçen kullanım tam gün sayılır, birden fazla gün süren konaklamada her gece ayrı fiyatlanır. 1+0 ve 1+1 şimdilik aynı fiyat. Kayıtta tutar elle değiştirilebilir. Yeni fiyat yalnızca yeni rezervasyonlara uygulanır.</p></section>
   <section class="panel"><h2>Veri</h2>
   <p class="note">${S.mode==='live'?'Veriler ortak veritabanında: bu sayfaya erişimi olan herkes aynı odaları ve rezervasyonları görür.':'Veriler bu bilgisayarın tarayıcısında duruyor. Tarayıcı geçmişi silinirse kaybolur: her gün sonunda “Yedeği indir”e basın. Başka bilgisayarda açmak için yedeği orada geri yükleyin.'}</p>
   <div class="acts" style="justify-content:flex-start"><button class="btn" data-act="dl">Yedeği indir</button><label class="btn ghost" style="display:inline-flex;align-items:center;cursor:pointer">Yedekten geri yükle<input type="file" id="imp" accept=".json,application/json" hidden></label><button class="btn ghost" data-act="backup">Yedeği kopyala</button>${samples?`<button class="btn ghost" data-act="delsamples">Örnek kayıtları sil (${samples})</button>`:''}</div>
