@@ -67,6 +67,10 @@ textarea{min-height:64px;resize:vertical}
 .tile{text-align:start;border-radius:10px;padding:10px 12px;border:1px solid var(--line);background:var(--bg);display:grid;gap:2px;border-inline-start:5px solid var(--clean)}
 .tile.dirty{border-inline-start-color:var(--dirty)}.tile.soon{border-color:var(--teal);border-inline-start:5px solid var(--teal);border-style:dashed solid dashed solid}.tile.occ{border-inline-start-color:var(--teal);background:var(--tealS)}
 .tile .num{font-size:22px;font-weight:800}
+.tile.fault{border-inline-start-color:var(--mute);background:repeating-linear-gradient(135deg,var(--bg) 0 10px,var(--wk) 10px 20px)}
+.tile small.nt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);opacity:.8}
+.t-fault{background:var(--ink);color:var(--bg)}
+.fl{color:var(--dirty);font-weight:600}
 .tile small{color:var(--mute);font-size:12.5px}
 .list{display:grid;gap:6px}
 .li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
@@ -172,7 +176,7 @@ function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({res:[...S.res
 function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LKEY)||'null');if(j){S.res=new Map(j.res||[]);S.rooms=j.rooms||{};S.P={...DEF_P,...(j.P||{})}}}catch(e){}}
 async function putRes(id,r){S.res.set(id,r);render();if(db){try{await db.collection('res').doc(id).set(r)}catch(e){flash('Kaydedilemedi: '+(e.message||e.code))}}else saveLocal()}
 async function delRes(id){S.res.delete(id);render();if(db){try{await db.collection('res').doc(id).delete()}catch(e){flash('Silinemedi')}}else saveLocal()}
-async function putRoom(n,o){S.rooms[n]=o;render();if(db){try{await db.collection('rooms').doc('r'+n).set(o)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
+async function putRoom(n,o){const m={...(S.rooms[n]||{}),...o};S.rooms[n]=m;render();if(db){try{await db.collection('rooms').doc('r'+n).set(m)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
 async function putP(p){S.P=p;render();if(db){try{await db.doc('settings/prices').set(p)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
 function setSync(cls,txt){const el=document.getElementById('sync');el.className='sync '+cls;el.innerHTML='<b></b>'+txt}
 function flash(t){setSync('warn',esc(t))}
@@ -212,6 +216,8 @@ function price(s,e){
   return{t,txt:(N.length===1&&s.slice(0,10)===e.slice(0,10)?'Tam gün (7 saati geçiyor)':(hs+hi)+' gece')+' · '+[hi?hi+'×'+tl(P.geceHi):'',hs?hs+'×'+tl(P.geceHs)+' (Cuma/Cumartesi)':''].filter(Boolean).join(' + ')};
 }
 const rstate=n=>(S.rooms[n]&&S.rooms[n].state)||'temiz';
+const fault=n=>(S.rooms[n]&&S.rooms[n].ariza)||null;
+const notes=n=>((S.rooms[n]&&S.rooms[n].notes)||[]).slice().reverse();
 const occNow=n=>{const t=nowS(),L=list().filter(r=>r.room===n&&live(r));return L.find(r=>r.st==='icerde')||L.find(r=>r.st==='bekliyor'&&r.s<=t&&r.e>t)};
 const comingToday=n=>{const t=nowS();return list().filter(r=>r.room===n&&live(r)&&r.st==='bekliyor'&&r.s>t&&r.s.slice(0,10)===today()).sort((a,b)=>a.s<b.s?-1:1)[0]};
 const nextRes=n=>{const t=nowS();return list().filter(r=>r.room===n&&live(r)&&r.st==='bekliyor'&&r.s>t).sort((a,b)=>a.s<b.s?-1:1)[0]};
@@ -263,14 +269,14 @@ function vBoard(){
     const cls=o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'';
     const l1=o?esc(o.name)+(o.st==='bekliyor'?' <span class="tag t-day">gelmedi</span>':''):c?esc(c.name)+(d?' <span class="tag t-dirty">kirli</span>':''):d?'Boş · kirli':'Boş · temiz';
     const l2=o?(late?'Çıkış saati geçti ('+hm(o.e)+')':'Çıkış '+(o.e.slice(0,10)===today()?hm(o.e):fd(o.e)+' '+hm(o.e))):c?'Bugün giriş '+hm(c.s):nx?'Sonraki: '+fd(nx.s)+' '+hm(nx.s):'Yaklaşan rezervasyon yok';
-    const R=o||c;
-    return `<button class="tile ${cls}" data-act="${R?'res':'pickroom'}" data-id="${R?R.id:''}" data-room="${n}"><span><span class="num">${n}</span> <small>${TYPE(n)}</small></span><span>${l1}</span><small>${l2}</small></button>`}).join('')}</div></div>`).join('')}</div>`;
+    const F=fault(n),NT=notes(n);
+    return `<button class="tile ${cls}${F?' fault':''}" data-act="room" data-room="${n}"><span><span class="num">${n}</span> <small>${TYPE(n)}</small>${F?' <span class="tag t-fault">Arızalı</span>':''}</span><span>${l1}</span><small>${l2}</small>${F?`<small class="nt">Arıza: ${esc(F.note||'not yok')}</small>`:''}${NT.length?`<small class="nt">Not${NT.length>1?' ('+NT.length+')':''}: ${esc(NT[0].t)}</small>`:''}</button>`}).join('')}</div></div>`).join('')}</div>`;
 }
 function vResults(q){
   if(q.e<=q.s)return '<p class="err" style="margin-top:12px">Çıkış, girişten sonra olmalı.</p>';
   const p=price(q.s,q.e);
   const free=[],busy=[];
-  for(const n of ROOMS){const c=clash(n,q.s,q.e);c.length?busy.push([n,c[0]]):free.push(n)}
+  const flt=[];for(const n of ROOMS){if(fault(n)){flt.push(n);continue}const c=clash(n,q.s,q.e);c.length?busy.push([n,c[0]]):free.push(n)}
   const info=n=>{
     const prev=list().filter(r=>r.room===n&&live(r)&&effEnd(r)<=q.s).sort((a,b)=>effEnd(a)<effEnd(b)?1:-1)[0];
     const dirtyNow=rstate(n)==='kirli'&&q.s.slice(0,10)===today();
@@ -281,7 +287,8 @@ function vResults(q){
   const rows=free.map(n=>[n,info(n)]).sort((a,b)=>a[1][2]-b[1][2]||a[0]-b[0]);
   return `<p class="calc" style="margin:14px 0 0">${fd(q.s)} ${hm(q.s)} → ${fd(q.e)} ${hm(q.e)} · ${esc(p.txt)}</p>
   <div class="results">${rows.length?rows.map(([n,i])=>`<button class="rc" data-act="pick" data-room="${n}"><span class="num">${n}</span><span class="meta">${TYPE(n)} · ${FLOOR(n)}. kat</span><span class="tag t-${i[0]}">${i[1]}</span><span class="price">${tl(p.t)}</span></button>`).join(''):'<p class="empty">Bu aralıkta boş oda yok.</p>'}</div>
-  ${busy.length?`<p class="busy">Dolu: ${busy.map(([n,r])=>`<b>${n}</b> (${esc(r.name)}, ${hm(r.s)}–${hm(effEnd(r))})`).join(' · ')}</p>`:''}`;
+  ${busy.length?`<p class="busy">Dolu: ${busy.map(([n,r])=>`<b>${n}</b> (${esc(r.name)}, ${hm(r.s)}–${hm(effEnd(r))})`).join(' · ')}</p>`:''}
+  ${flt.length?`<p class="busy">Arızalı: ${flt.map(n=>`<b>${n}</b> (${esc(fault(n).note||'not yok')})`).join(' · ')}</p>`:''}`;
 }
 function vTakvim(){
   const [y,m]=S.month.split('-').map(Number);
@@ -291,7 +298,7 @@ function vTakvim(){
   const head=days.map(d=>`<th class="${[5,6].includes(dow(d))?'wk':''}">${+d.slice(8)}<small>${GUN[dow(d)]}</small></th>`).join('');
   const body=ROOMS.map(n=>{
     const R=L.filter(r=>r.room===n);
-    return `<tr><th class="rn"><span class="num">${n}</span> <small>${TYPE(n)}</small></th>${days.map(d=>{
+    return `<tr><th class="rn" title="${fault(n)?'Arızalı: '+esc(fault(n).note):''}"><span class="num">${n}</span> <small>${TYPE(n)}</small>${fault(n)?' <small class="fl">arızalı</small>':''}</th>${days.map(d=>{
       const nt=R.find(r=>covers(r,d));
       const du=R.filter(r=>sameDay(r)&&r.s.slice(0,10)===d);
       let h='';
@@ -315,7 +322,7 @@ function vGun(){
     const bl=L.filter(r=>r.room===n).map(r=>{
       const a=r.s<d+'T00:00'?0:minOf(r.s),b=effEnd(r)>=addDays(d,1)+'T00:00'?1440:minOf(effEnd(r));
       return `<button class="blk ${sameDay(r)?'d':''} ${r.st==='cikti'?'out':''}" data-act="res" data-id="${r.id}" style="left:${a/14.4}%;width:${Math.max(b-a,20)/14.4}%">${esc(r.name)}<small>${r.s<d+'T00:00'?'…':hm(r.s)}–${effEnd(r)>=addDays(d,1)+'T00:00'?'…':hm(effEnd(r))}</small></button>`}).join('');
-    return `<div class="rl">${n}<small>${TYPE(n)}${rstate(n)==='kirli'&&isT?' · kirli':''}</small></div><div class="track" data-track="${n}">${bl}${nowP!=null?`<div class="nowline" style="left:${nowP}%"></div>`:''}</div>`}).join('');
+    return `<div class="rl">${n}<small>${TYPE(n)}${rstate(n)==='kirli'&&isT?' · kirli':''}${fault(n)?' · <b class="fl">arızalı</b>':''}</small></div><div class="track" data-track="${n}">${bl}${nowP!=null?`<div class="nowline" style="left:${nowP}%"></div>`:''}</div>`}).join('');
   return `<div class="bar"><button class="btn ghost sm" data-act="dprev" aria-label="Önceki gün">‹</button><h2>${fd(d)} ${d.slice(0,4)}</h2><button class="btn ghost sm" data-act="dnext" aria-label="Sonraki gün">›</button>
   <input type="date" id="dpick" value="${d}"><button class="btn ghost sm" data-act="dnow">Bugün</button><span class="note" style="margin-inline-start:auto">Boş bir yere tıkla: o oda ve saatle yeni rezervasyon</span></div>
   <div class="scroll"><div class="day"><div class="hd"></div><div class="hd hours">${[...Array(24)].map((_,i)=>`<span>${pad(i)}</span>`).join('')}</div>${rows}</div></div>`;
@@ -324,10 +331,13 @@ function vKat(){
   const t=today();
   const dirty=ROOMS.filter(n=>rstate(n)==='kirli'&&!occNow(n));
   const dep=list().filter(r=>live(r)&&r.st!=='cikti'&&r.e.slice(0,10)===t).sort((a,b)=>a.e<b.e?-1:1);
-  const clean=ROOMS.filter(n=>rstate(n)!=='kirli'&&!occNow(n));
+  const clean=ROOMS.filter(n=>rstate(n)!=='kirli'&&!occNow(n)&&!fault(n));
+  const flt=ROOMS.filter(n=>fault(n));
+  const nts=n=>notes(n).map(x=>'<small>Not: '+esc(x.t)+'</small>').join('');
   return `<div class="kat">
+  ${flt.length?`<section class="panel"><h2>Arızalı odalar</h2><div class="list">${flt.map(n=>`<div class="li"><span class="num">${n}</span><span class="who">${esc(fault(n).note||'Not yok')}<small>${fd(fault(n).at)} ${hm(fault(n).at)}</small></span><button class="btn ghost sm" data-act="unfault" data-room="${n}">Giderildi</button></div>`).join('')}</div></section>`:''}
   <section class="panel"><h2>Temizlenecek odalar</h2><div class="list">${dirty.length?dirty.map(n=>{const nx=nextRes(n);const at=S.rooms[n]&&S.rooms[n].at;
-    return `<div class="li"><span class="num">${n}</span><span class="who">${TYPE(n)} · ${FLOOR(n)}. kat<small>${at?'Kirli işaretlendi '+fd(at)+' '+hm(at):''}${nx?' · Sonraki giriş '+(nx.s.slice(0,10)===t?'bugün ':fd(nx.s)+' ')+hm(nx.s):''}</small></span><button class="btn" data-act="clean" data-room="${n}">Temizlendi</button></div>`}).join(''):'<p class="empty">Temizlenecek oda yok.</p>'}</div></section>
+    return `<div class="li"><span class="num">${n}</span><span class="who">${TYPE(n)} · ${FLOOR(n)}. kat<small>${at?'Kirli işaretlendi '+fd(at)+' '+hm(at):''}${nx?' · Sonraki giriş '+(nx.s.slice(0,10)===t?'bugün ':fd(nx.s)+' ')+hm(nx.s):''}</small>${nts(n)}</span><button class="btn" data-act="clean" data-room="${n}">Temizlendi</button></div>`}).join(''):'<p class="empty">Temizlenecek oda yok.</p>'}</div></section>
   <section class="panel"><h2>Bugün çıkacaklar</h2><div class="list">${dep.length?dep.map(r=>`<div class="li"><span class="num">${r.room}</span><span class="who">Çıkış ${hm(r.e)}<small>${r.st==='icerde'?'Misafir içeride':'Henüz giriş yapılmadı'}</small></span></div>`).join(''):'<p class="empty">Bugün çıkış yok.</p>'}</div></section>
   <section class="panel"><h2>Boş ve temiz</h2><div class="list">${clean.map(n=>`<div class="li"><span class="num">${n}</span><span class="who">${TYPE(n)}</span><button class="btn ghost sm" data-act="dirty" data-room="${n}">Kirli işaretle</button></div>`).join('')||'<p class="empty">Yok.</p>'}</div></section>
   </div>`;
@@ -366,8 +376,24 @@ function vForm(m){
   <label class="full">Not<textarea name="note">${esc(r.note)}</textarea></label>
   </div>
   <p class="calc" id="calc">${esc(p.txt)}${r.price!=null&&r.price!==''&&+r.price!==p.t?' · elle girilen tutar kullanılacak':''}</p>
+  <p class="err" id="ferr">${fault(+r.room)?'Uyarı: oda '+r.room+' arızalı ('+esc(fault(+r.room).note||'not yok')+')':''}</p>
   <p class="err" id="cerr">${c.length?'Çakışma: oda '+r.room+' bu aralıkta dolu ('+esc(c[0].name)+', '+fd(c[0].s)+' '+hm(c[0].s)+'–'+hm(effEnd(c[0]))+')':r.e<=r.s?'Çıkış, girişten sonra olmalı.':''}</p>
   <div class="acts"><button type="button" class="btn ghost" data-act="close">Vazgeç</button><button class="btn">${m.id?'Değişiklikleri kaydet':'Rezervasyonu kaydet'}</button></div></form>`;
+}
+function vRoom(m){
+  const n=m.n,F=fault(n),NT=notes(n),o=occNow(n),c=o?null:comingToday(n),nx=nextRes(n),R=o||c;
+  const up=list().filter(r=>r.room===n&&live(r)&&r.st==='bekliyor'&&r.s>nowS()).length;
+  return `<h2>Oda ${n} · ${TYPE(n)} · ${FLOOR(n)}. kat</h2>
+  <p class="note" style="margin:0">${rstate(n)==='kirli'?'<span class="tag t-dirty">Kirli</span>':'<span class="tag t-clean">Temiz</span>'} ${o?'Dolu: <b>'+esc(o.name)+'</b>, çıkış '+fd(o.e)+' '+hm(o.e):c?'Bugün gelecek: <b>'+esc(c.name)+'</b> '+hm(c.s):nx?'Sonraki: '+esc(nx.name)+' '+fd(nx.s)+' '+hm(nx.s):'Yaklaşan rezervasyon yok'}</p>
+  <div class="acts" style="justify-content:flex-start">${R?`<button class="btn ghost sm" data-act="res" data-id="${R.id}">Rezervasyonu aç</button>`:''}<button class="btn sm" data-act="pickroom" data-room="${n}">Yeni rezervasyon</button>
+   <button class="btn ghost sm" data-act="${rstate(n)==='kirli'?'clean':'dirty'}" data-room="${n}">${rstate(n)==='kirli'?'Temiz işaretle':'Kirli işaretle'}</button></div>
+  <h2 style="margin-top:18px">Arıza</h2>
+  ${F?`<div class="li" style="border-color:var(--dirty)"><span class="who"><b>Arızalı</b> · ${esc(F.note||'Not yok')}<small>${fd(F.at)} ${hm(F.at)} tarihinden beri${up?' · Bu odada '+up+' yaklaşan rezervasyon var':''}</small></span><button class="btn sm" data-act="unfault" data-room="${n}">Arızayı kaldır</button></div>`:
+  `<form id="faultf" class="row" data-room="${n}"><input name="t" placeholder="Arıza notu, ör. klima çalışmıyor" style="flex:1;min-width:200px" autocomplete="off"><button class="btn warn">Arızalı işaretle</button></form>`}
+  <h2 style="margin-top:18px">Notlar</h2>
+  <div class="list">${NT.length?NT.map(x=>`<div class="li"><span class="who">${esc(x.t)}<small>${fd(x.at)} ${hm(x.at)}</small></span><button class="btn ghost sm" data-act="delnote" data-room="${n}" data-nid="${x.id}" aria-label="Notu sil">Sil</button></div>`).join(''):'<p class="empty">Bu odada not yok.</p>'}</div>
+  <form id="notef" class="row" data-room="${n}" style="margin-top:8px"><input name="t" placeholder="Not ekle, ör. minibar eksik" style="flex:1;min-width:200px" autocomplete="off"><button class="btn">Not ekle</button></form>
+  <div class="acts"><button class="btn ghost" data-act="close">Kapat</button></div>`;
 }
 function waText(r){return `Merhaba ${r.name}, Çınar Suit rezervasyonunuz oluşturuldu.\nOda: ${r.room} (${TYPE(r.room)})\nGiriş: ${fd(r.s)} ${hm(r.s)}\nÇıkış: ${fd(r.e)} ${hm(r.e)}\nKişi: ${r.g}\nTutar: ${tl(r.price)}\nİyi günler dileriz.`}
 function vDetail(m){
@@ -392,13 +418,14 @@ function vDetail(m){
 function renderModal(){
   const el=document.getElementById('modal'),m=S.modal;
   if(!m){el.innerHTML='';return}
-  el.innerHTML=`<div class="ov" data-act="ovclose"><div class="modal" role="dialog" aria-modal="true">${m.k==='form'?vForm(m):vDetail(m)}</div></div>`;
+  el.innerHTML=`<div class="ov" data-act="ovclose"><div class="modal" role="dialog" aria-modal="true">${m.k==='form'?vForm(m):m.k==='room'?vRoom(m):vDetail(m)}</div></div>`;
   const f=el.querySelector('#rf');
   if(f){const first=f.querySelector('[name=name]');if(first&&!m.focused){first.focus();m.focused=1}
     f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price')});
       const p=price(m.r.s,m.r.e),c=m.r.s&&m.r.e?clash(m.r.room,m.r.s,m.r.e,m.id):[];
       f.querySelector('#calc').textContent=p.txt+(m.r.price!=null&&m.r.price!==p.t?' · elle girilen tutar kullanılacak':'');
       f.querySelector('[name=price]').placeholder=p.t;
+      const F=fault(m.r.room);f.querySelector('#ferr').textContent=F?'Uyarı: oda '+m.r.room+' arızalı ('+(F.note||'not yok')+')':'';
       f.querySelector('#cerr').textContent=c.length?'Çakışma: oda '+m.r.room+' bu aralıkta dolu ('+c[0].name+', '+fd(c[0].s)+' '+hm(c[0].s)+'–'+hm(effEnd(c[0]))+')':m.r.e<=m.r.s?'Çıkış, girişten sonra olmalı.':''});
     f.addEventListener('submit',ev=>{ev.preventDefault();f.dispatchEvent(new Event('input'));
       const r=m.r;if(!r.name.trim()||r.e<=r.s||clash(r.room,r.s,r.e,m.id).length)return;
@@ -417,7 +444,7 @@ function render(){
   if(keep&&v!=='bugun'&&v!=='ayarlar')return;
   if(keep)return;
   document.getElementById('app').innerHTML=({bugun:vBugun,takvim:vTakvim,gun:vGun,kat:vKat,ayarlar:vAyarlar}[v]||vBugun)();
-  if(S.modal&&S.modal.k==='detail')renderModal();
+  if(S.modal&&S.modal.k!=='form')renderModal();
 }
 function route(){const h=location.hash.slice(1);S.view=['bugun','takvim','gun','kat','ayarlar'].includes(h)?h:'bugun';render();scrollTo(0,0)}
 window.addEventListener('hashchange',route);
@@ -425,6 +452,9 @@ window.addEventListener('hashchange',route);
 document.addEventListener('submit',ev=>{
   const f=ev.target;
   if(f.id==='qf'){ev.preventDefault();const d=new FormData(f);S.q={s:d.get('sd')+'T'+d.get('st'),e:d.get('ed')+'T'+d.get('et'),g:+d.get('g')||2};document.activeElement.blur();render()}
+  if(f.id==='notef'||f.id==='faultf'){ev.preventDefault();const n=+f.dataset.room,t=new FormData(f).get('t').trim();
+    if(f.id==='notef'){if(!t)return;putRoom(n,{notes:[...((S.rooms[n]&&S.rooms[n].notes)||[]),{id:uid(),t,at:nowS()}]})}
+    else putRoom(n,{ariza:{note:t,at:nowS()}})}
   if(f.id==='pf'){ev.preventDefault();const d=new FormData(f);const p={};for(const k in DEF_P)p[k]=+d.get(k)||DEF_P[k];document.activeElement.blur();putP(p)}
 });
 document.addEventListener('change',ev=>{if(ev.target.id==='imp'&&ev.target.files[0]){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);if(!Array.isArray(j.res))throw 0;
@@ -452,6 +482,9 @@ document.addEventListener('click',ev=>{
   case 'dprev':S.dayD=addDays(S.dayD,-1);render();break;case 'dnext':S.dayD=addDays(S.dayD,1);render();break;case 'dnow':S.dayD=today();render();break;
   case 'in':{const r=S.res.get(id);if(r)putRes(id,{...r,st:'icerde'});if(S.modal)renderModal();break}
   case 'out':{const r=S.res.get(id);if(r){const n=nowS();putRes(id,{...r,st:'cikti',outAt:n<r.e?n:r.e});putRoom(r.room,{state:'kirli',at:n})}if(S.modal)renderModal();break}
+  case 'room':S.modal={k:'room',n:room};renderModal();break;
+  case 'unfault':putRoom(room,{ariza:null});break;
+  case 'delnote':putRoom(room,{notes:((S.rooms[room]&&S.rooms[room].notes)||[]).filter(x=>x.id!==t.dataset.nid)});break;
   case 'clean':putRoom(room,{state:'temiz',at:nowS()});break;
   case 'dirty':putRoom(room,{state:'kirli',at:nowS()});break;
   case 'edit':{const r=S.res.get(S.modal.id);S.modal={k:'form',id:S.modal.id,r:{...r}};renderModal();break}
