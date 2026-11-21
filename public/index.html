@@ -371,18 +371,19 @@ function vKasa(){
     ...[...S.kasa].filter(([id,k])=>k.d.slice(0,7)===M).map(([id,k])=>({k:'kasa',id,d:k.d,type:k.type,desc:k.desc,amt:+k.amt||0,pay:k.pay||''}))].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
   const inc=rows.filter(r=>r.type==='gelir'&&!r.bk),exp=rows.filter(r=>r.type==='gider'),bk=rows.filter(r=>r.bk);
   const sum=a=>a.reduce((x,r)=>x+r.amt,0);
-  const by=k=>sum(inc.filter(r=>r.pay===k)),none=inc.filter(r=>!r.pay);
-  const card=(t,v,cls='')=>`<div class="kc ${cls}"><small>${t}</small><span class="num">${tl(v)}</span></div>`;
+  const gi=k=>sum(inc.filter(r=>r.pay===k)),go=k=>sum(exp.filter(r=>r.pay===k)),none=inc.filter(r=>!r.pay),enone=exp.filter(r=>!r.pay);
+  const card=(t,v,cls='',sub='')=>`<div class="kc ${cls}"><small>${t}</small><span class="num">${tl(v)}</span>${sub?`<small>${sub}</small>`:''}</div>`;
+  const mc=k=>card(PAY[k],gi(k)-go(k),'',`+${tl(gi(k))} gelir · −${tl(go(k))} gider`);
   return `<div class="bar"><button class="btn ghost sm" data-act="kprev" aria-label="Önceki ay">‹</button><h2>Kasa · ${AY[mo-1]} ${y}</h2><button class="btn ghost sm" data-act="knext" aria-label="Sonraki ay">›</button><button class="btn ghost sm" data-act="know">Bu ay</button></div>
-  <div class="kcards">${card('Nakit',by('nakit'))}${card('Havale',by('havale'))}${card('Kart',by('kart'))}${card('Toplam gelir',sum(inc),'in')}${card('Gider',sum(exp),'out')}${card('Net',sum(inc)-sum(exp),'net')}</div>
-  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}Booking: ${bk.length} rezervasyon, ${tl(sum(bk))} (ödeme Booking üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
+  <div class="kcards">${mc('nakit')}${mc('havale')}${mc('kart')}${card('Toplam gelir',sum(inc),'in')}${card('Gider',sum(exp),'out')}${card('Net',sum(inc)-sum(exp),'net')}</div>
+  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}${enone.length?`<b class="fl">${enone.length} giderde ödeme yöntemi yok</b> · `:''}Nakit, Havale ve Kart kutuları o yöntemle alınan gelirden aynı yöntemle ödenen gideri düşer. · Booking: ${bk.length} rezervasyon, ${tl(sum(bk))} (ödeme Booking üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
   <section class="panel" style="margin:14px 0"><h2>Gelir / gider ekle</h2>
   <form id="kf" class="row">
    <label>Tür<select name="type"><option value="gider">Gider</option><option value="gelir">Gelir</option></select></label>
    <label>Tarih<input type="date" name="d" value="${M===today().slice(0,7)?today():M+'-01'}" required></label>
    <label style="flex:1;min-width:200px">Açıklama<input name="desc" required placeholder="ör. temizlik malzemesi" autocomplete="off"></label>
    <label>Tutar (₺)<input type="number" name="amt" min="0" step="1" required style="width:120px"></label>
-   <label>Ödeme<select name="pay"><option value="">—</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></label>
+   <label>Ödeme<select name="pay" required>${Object.entries(PAY).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></label>
    <button class="btn">Ekle</button></form></section>
   <div class="scroll"><table class="kt"><thead><tr><th>Tarih</th><th>Açıklama</th><th class="r">Tutar</th><th>Ödeme</th><th></th></tr></thead><tbody>
   ${rows.length?rows.map(r=>`<tr class="${r.bk?'bkrow':''}"><td>${fd(r.d)}</td><td>${r.k==='res'?`<button class="lnk" data-act="res" data-id="${r.id}">${esc(r.desc)}</button>`:esc(r.desc)}${r.bk?' <span class="tag t-bk">Booking</span>':''}</td>
