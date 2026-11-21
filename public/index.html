@@ -20,7 +20,7 @@
 --dirty:light-dark(#b4441b,#f0905f);--dirtyS:light-dark(#f7e0d3,#3a2418);
 --clean:light-dark(#2e7d4f,#72cf98);--cleanS:light-dark(#dcefe2,#1b3325);
 --day:light-dark(#9a6a12,#e2b65e);--dayS:light-dark(#f3e4c2,#3a2f17);
---wk:light-dark(#ece4d6,#172021)}
+--wk:light-dark(#ece4d6,#172021);--bk:light-dark(#2453a6,#7ea3f2);--bkS:light-dark(#dde6f7,#1c2a45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:clip}
@@ -71,6 +71,20 @@ textarea{min-height:64px;resize:vertical}
 .tile small.nt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);opacity:.8}
 .t-fault{background:var(--ink);color:var(--bg)}
 .fl{color:var(--dirty);font-weight:600}
+.t-bk{background:var(--bk);color:#fff}
+.month .n.bk{background:var(--bk)}.month .dd.bk{background:var(--bk)}.blk.bk{background:var(--bk);color:#fff}
+.tile.bk{border-inline-start-color:var(--bk)}.tile.occ.bk{background:var(--bkS)}
+.seg{display:flex;gap:8px}.seg label{flex-direction:row;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--ink);font-size:15px;cursor:pointer}
+.seg input{min-height:auto}.seg label:has(input:checked){border-color:var(--teal);background:var(--tealS)}.seg label.bkopt:has(input:checked){border-color:var(--bk);background:var(--bkS)}
+.pricerow{display:flex;gap:8px}.pricerow input{flex:1}.pricerow select{flex:1}
+select.pay{min-height:34px;padding:4px 8px;font-size:14px}
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+.kc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+.kc small{color:var(--mute)}.kc .num{font-size:22px;font-weight:800}
+.kc.in .num{color:var(--clean)}.kc.out .num{color:var(--dirty)}.kc.net{background:var(--teal);color:var(--tealI);border-color:var(--teal)}.kc.net small{color:inherit;opacity:.8}
+table.kt{width:100%;border-collapse:collapse;font-size:14px}.kt th,.kt td{text-align:start;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.kt th{color:var(--mute);font-weight:600;font-size:13px}.kt .r{text-align:end;white-space:nowrap}.kt .pos{color:var(--clean)}.kt .neg{color:var(--dirty)}
+.kt tr.bkrow td{color:var(--mute)}.lnk{all:unset;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .tile small{color:var(--mute);font-size:12.5px}
 .list{display:grid;gap:6px}
 .li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
@@ -136,6 +150,7 @@ pre.msg{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);b
     <a href="#takvim" data-v="takvim">Aylık</a>
     <a href="#gun" data-v="gun">Gün</a>
     <a href="#kat" data-v="kat">Kat görevlisi</a>
+    <a href="#kasa" data-v="kasa">Kasa</a>
     <a href="#ayarlar" data-v="ayarlar">Ayarlar</a>
   </nav>
   <div class="sync" id="sync"><b></b>Bağlanıyor…</div>
@@ -168,14 +183,16 @@ const tl=n=>(+n||0).toLocaleString('tr-TR')+' ₺';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
-const S={res:new Map(),rooms:{},P:{...DEF_P},mode:'wait',view:'bugun',month:today().slice(0,7),dayD:today(),q:null,modal:null};
+const S={res:new Map(),kasa:new Map(),kmonth:today().slice(0,7),rooms:{},P:{...DEF_P},mode:'wait',view:'bugun',month:today().slice(0,7),dayD:today(),q:null,modal:null};
 let db=null,loaded=false;
 
 /* ---------- veri katmanı ---------- */
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({res:[...S.res],rooms:S.rooms,P:S.P}))}catch(e){}}
-function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LKEY)||'null');if(j){S.res=new Map(j.res||[]);S.rooms=j.rooms||{};S.P={...DEF_P,...(j.P||{})}}}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({res:[...S.res],kasa:[...S.kasa],rooms:S.rooms,P:S.P}))}catch(e){}}
+function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LKEY)||'null');if(j){S.res=new Map(j.res||[]);S.kasa=new Map(j.kasa||[]);S.rooms=j.rooms||{};S.P={...DEF_P,...(j.P||{})}}}catch(e){}}
 async function putRes(id,r){S.res.set(id,r);render();if(db){try{await db.collection('res').doc(id).set(r)}catch(e){flash('Kaydedilemedi: '+(e.message||e.code))}}else saveLocal()}
 async function delRes(id){S.res.delete(id);render();if(db){try{await db.collection('res').doc(id).delete()}catch(e){flash('Silinemedi')}}else saveLocal()}
+async function putKasa(id,k){S.kasa.set(id,k);render();if(db){try{await db.collection('kasa').doc(id).set(k)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
+async function delKasa(id){S.kasa.delete(id);render();if(db){try{await db.collection('kasa').doc(id).delete()}catch(e){flash('Silinemedi')}}else saveLocal()}
 async function putRoom(n,o){const m={...(S.rooms[n]||{}),...o};S.rooms[n]=m;render();if(db){try{await db.collection('rooms').doc('r'+n).set(m)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
 async function putP(p){S.P=p;render();if(db){try{await db.doc('settings/prices').set(p)}catch(e){flash('Kaydedilemedi')}}else saveLocal()}
 function setSync(cls,txt){const el=document.getElementById('sync');el.className='sync '+cls;el.innerHTML='<b></b>'+txt}
@@ -192,6 +209,7 @@ async function boot(){
   const er=e=>{clearTimeout(timer);setSync('warn','Bağlantı kesildi ('+esc(e.code)+')')};
   db.collection('res').onSnapshot(s=>{S.res=new Map(s.docs.map(d=>[d.id,d.data()]));ok(s);render()},er);
   db.collection('rooms').onSnapshot(s=>{const o={};s.docs.forEach(d=>{o[d.id.slice(1)]=d.data()});S.rooms=o;render()},er);
+  db.collection('kasa').onSnapshot(s=>{S.kasa=new Map(s.docs.map(d=>[d.id,d.data()]));render()},er);
   db.doc('settings/prices').onSnapshot(s=>{S.P={...DEF_P,...(s.exists?s.data():{})};render()},er);
 }
 
@@ -215,6 +233,10 @@ function price(s,e){
   const t=hs*P.geceHs+hi*P.geceHi;
   return{t,txt:(N.length===1&&s.slice(0,10)===e.slice(0,10)?'Tam gün (7 saati geçiyor)':(hs+hi)+' gece')+' · '+[hi?hi+'×'+tl(P.geceHi):'',hs?hs+'×'+tl(P.geceHs)+' (Cuma/Cumartesi)':''].filter(Boolean).join(' + ')};
 }
+const PAY={nakit:'Nakit',havale:'Havale',kart:'Kart'};
+const isBk=r=>r&&r.src==='booking';
+const bkTag=r=>isBk(r)?' <span class="tag t-bk">Booking</span>':'';
+const paySel=(kind,id,v,dis)=>`<select class="pay" data-pay="${kind}" data-id="${id}" ${dis?'disabled':''} aria-label="Ödeme yöntemi"><option value="">Ödeme seç</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('')}</select>`;
 const rstate=n=>(S.rooms[n]&&S.rooms[n].state)||'temiz';
 const fault=n=>(S.rooms[n]&&S.rooms[n].ariza)||null;
 const notes=n=>((S.rooms[n]&&S.rooms[n].notes)||[]).slice().reverse();
@@ -260,14 +282,14 @@ function li(r,k){
   const st={bekliyor:'',icerde:'<span class="tag t-occ">İçeride</span>',cikti:'<span class="tag t-clean">Çıktı</span>'}[r.st]||'';
   const btn=k==='s'&&r.st==='bekliyor'?`<button class="btn sm" data-act="in" data-id="${r.id}">Giriş yaptı</button>`:
             k==='e'&&r.st!=='cikti'?`<button class="btn sm ghost" data-act="out" data-id="${r.id}">Çıkış yaptı</button>`:st;
-  return `<div class="li"><span class="num">${r.room}</span><button class="who" data-act="res" data-id="${r.id}" style="all:unset;flex:1;cursor:pointer">${esc(r.name)}<small>${hm(r.s)} → ${r.e.slice(0,10)===r.s.slice(0,10)?'':fd(r.e)+' '}${hm(r.e)} · ${r.g} kişi${sameDay(r)?' · günübirlik':''}</small></button>${btn}</div>`;
+  return `<div class="li"><span class="num">${r.room}</span><button class="who" data-act="res" data-id="${r.id}" style="all:unset;flex:1;cursor:pointer">${esc(r.name)}${bkTag(r)}<small>${hm(r.s)} → ${r.e.slice(0,10)===r.s.slice(0,10)?'':fd(r.e)+' '}${hm(r.e)} · ${r.g} kişi${sameDay(r)?' · günübirlik':''}</small></button>${btn}</div>`;
 }
 function vBoard(){
   return `<div class="floors">${FLOORS.map((f,i)=>`<div class="floor"><span>${i+1}. kat</span><div class="tiles">${f.map(n=>{
     const o=occNow(n),c=o?null:comingToday(n),nx=nextRes(n),d=rstate(n)==='kirli';
     const late=o&&o.st==='icerde'&&o.e<=nowS();
-    const cls=o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'';
-    const l1=o?esc(o.name)+(o.st==='bekliyor'?' <span class="tag t-day">gelmedi</span>':''):c?esc(c.name)+(d?' <span class="tag t-dirty">kirli</span>':''):d?'Boş · kirli':'Boş · temiz';
+    const cls=(o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'')+(isBk(o||c)?' bk':'');
+    const l1=o?esc(o.name)+bkTag(o)+(o.st==='bekliyor'?' <span class="tag t-day">gelmedi</span>':''):c?esc(c.name)+bkTag(c)+(d?' <span class="tag t-dirty">kirli</span>':''):d?'Boş · kirli':'Boş · temiz';
     const l2=o?(late?'Çıkış saati geçti ('+hm(o.e)+')':'Çıkış '+(o.e.slice(0,10)===today()?hm(o.e):fd(o.e)+' '+hm(o.e))):c?'Bugün giriş '+hm(c.s):nx?'Sonraki: '+fd(nx.s)+' '+hm(nx.s):'Yaklaşan rezervasyon yok';
     const F=fault(n),NT=notes(n);
     return `<button class="tile ${cls}${F?' fault':''}" data-act="room" data-room="${n}"><span><span class="num">${n}</span> <small>${TYPE(n)}</small>${F?' <span class="tag t-fault">Arızalı</span>':''}</span><span>${l1}</span><small>${l2}</small>${F?`<small class="nt">Arıza: ${esc(F.note||'not yok')}</small>`:''}${NT.length?`<small class="nt">Not${NT.length>1?' ('+NT.length+')':''}: ${esc(NT[0].t)}</small>`:''}</button>`}).join('')}</div></div>`).join('')}</div>`;
@@ -304,15 +326,15 @@ function vTakvim(){
       let h='';
       if(nt){const NN=nightsOf(nt.s,effEnd(nt)),st=NN[0]===d,en=NN[NN.length-1]===d;
         const len=NN.filter(x=>x>=d&&x<=days[N-1]).length;
-        h=`<div class="n ${st?'st':''} ${en?'en':''}" data-act="res" data-id="${nt.id}" title="${esc(nt.name)} · ${hm(nt.s)}–${hm(effEnd(nt))}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
-      if(du.length)h+=`<div class="dd" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
+        h=`<div class="n ${st?'st':''} ${en?'en':''} ${isBk(nt)?'bk':''}" data-act="res" data-id="${nt.id}" title="${esc(nt.name)} · ${hm(nt.s)}–${hm(effEnd(nt))}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
+      if(du.length)h+=`<div class="dd ${du.some(isBk)?'bk':''}" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
       return `<td class="${[5,6].includes(dow(d))?'wk':''} ${d===t?'today':''}" data-act="day" data-d="${d}" title="Oda ${n} · ${fd(d)}">${h}</td>`}).join('')}</tr>`}).join('');
   const occ=days.reduce((a,d)=>a+ROOMS.filter(n=>L.some(r=>r.room===n&&covers(r,d))).length,0);
   const rev=L.filter(r=>r.s.slice(0,7)===S.month).reduce((a,r)=>a+(+r.price||0),0);
   return `<div class="bar"><button class="btn ghost sm" data-act="mprev" aria-label="Önceki ay">‹</button><h2>${AY[m-1]} ${y}</h2><button class="btn ghost sm" data-act="mnext" aria-label="Sonraki ay">›</button>
   <button class="btn ghost sm" data-act="mnow">Bu ay</button><span class="note" style="margin-inline-start:auto">Doluluk %${Math.round(occ/(N*ROOMS.length)*100)} · Bu ay girişli rezervasyon tutarı ${tl(rev)}</span></div>
   <div class="scroll"><table class="month"><thead><tr><th class="rn">Oda</th>${head}</tr></thead><tbody>${body}</tbody></table></div>
-  <div class="legend"><span><i style="background:var(--teal)"></i>Gecelik konaklama</span><span><i style="background:var(--day)"></i>Günübirlik (saatler)</span><span><i style="background:var(--wk);border:1px solid var(--line)"></i>Cuma/Cumartesi gecesi</span><span>Bir güne tıklayınca saatlik görünüm açılır</span></div>`;
+  <div class="legend"><span><i style="background:var(--teal)"></i>Gecelik konaklama</span><span><i style="background:var(--day)"></i>Günübirlik (saatler)</span><span><i style="background:var(--bk)"></i>Booking</span><span><i style="background:var(--wk);border:1px solid var(--line)"></i>Cuma/Cumartesi gecesi</span><span>Bir güne tıklayınca saatlik görünüm açılır</span></div>`;
 }
 function vGun(){
   const d=S.dayD,isT=d===today();
@@ -321,7 +343,7 @@ function vGun(){
   const rows=ROOMS.map(n=>{
     const bl=L.filter(r=>r.room===n).map(r=>{
       const a=r.s<d+'T00:00'?0:minOf(r.s),b=effEnd(r)>=addDays(d,1)+'T00:00'?1440:minOf(effEnd(r));
-      return `<button class="blk ${sameDay(r)?'d':''} ${r.st==='cikti'?'out':''}" data-act="res" data-id="${r.id}" style="left:${a/14.4}%;width:${Math.max(b-a,20)/14.4}%">${esc(r.name)}<small>${r.s<d+'T00:00'?'…':hm(r.s)}–${effEnd(r)>=addDays(d,1)+'T00:00'?'…':hm(effEnd(r))}</small></button>`}).join('');
+      return `<button class="blk ${isBk(r)?'bk':sameDay(r)?'d':''} ${r.st==='cikti'?'out':''}" data-act="res" data-id="${r.id}" style="left:${a/14.4}%;width:${Math.max(b-a,20)/14.4}%">${esc(r.name)}<small>${r.s<d+'T00:00'?'…':hm(r.s)}–${effEnd(r)>=addDays(d,1)+'T00:00'?'…':hm(effEnd(r))}</small></button>`}).join('');
     return `<div class="rl">${n}<small>${TYPE(n)}${rstate(n)==='kirli'&&isT?' · kirli':''}${fault(n)?' · <b class="fl">arızalı</b>':''}</small></div><div class="track" data-track="${n}">${bl}${nowP!=null?`<div class="nowline" style="left:${nowP}%"></div>`:''}</div>`}).join('');
   return `<div class="bar"><button class="btn ghost sm" data-act="dprev" aria-label="Önceki gün">‹</button><h2>${fd(d)} ${d.slice(0,4)}</h2><button class="btn ghost sm" data-act="dnext" aria-label="Sonraki gün">›</button>
   <input type="date" id="dpick" value="${d}"><button class="btn ghost sm" data-act="dnow">Bugün</button><span class="note" style="margin-inline-start:auto">Boş bir yere tıkla: o oda ve saatle yeni rezervasyon</span></div>
@@ -341,6 +363,33 @@ function vKat(){
   <section class="panel"><h2>Bugün çıkacaklar</h2><div class="list">${dep.length?dep.map(r=>`<div class="li"><span class="num">${r.room}</span><span class="who">Çıkış ${hm(r.e)}<small>${r.st==='icerde'?'Misafir içeride':'Henüz giriş yapılmadı'}</small></span></div>`).join(''):'<p class="empty">Bugün çıkış yok.</p>'}</div></section>
   <section class="panel"><h2>Boş ve temiz</h2><div class="list">${clean.map(n=>`<div class="li"><span class="num">${n}</span><span class="who">${TYPE(n)}</span><button class="btn ghost sm" data-act="dirty" data-room="${n}">Kirli işaretle</button></div>`).join('')||'<p class="empty">Yok.</p>'}</div></section>
   </div>`;
+}
+function vKasa(){
+  const M=S.kmonth,[y,mo]=M.split('-').map(Number);
+  const R=list().filter(r=>live(r)&&r.s.slice(0,7)===M);
+  const rows=[...R.map(r=>({k:'res',id:r.id,d:r.s.slice(0,10),type:'gelir',bk:isBk(r),desc:'Oda '+r.room+' · '+r.name+(sameDay(r)?' · günübirlik':' · '+price(r.s,r.e).txt.split(' · ')[0]),amt:+r.price||0,pay:r.pay||''})),
+    ...[...S.kasa].filter(([id,k])=>k.d.slice(0,7)===M).map(([id,k])=>({k:'kasa',id,d:k.d,type:k.type,desc:k.desc,amt:+k.amt||0,pay:k.pay||''}))].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  const inc=rows.filter(r=>r.type==='gelir'&&!r.bk),exp=rows.filter(r=>r.type==='gider'),bk=rows.filter(r=>r.bk);
+  const sum=a=>a.reduce((x,r)=>x+r.amt,0);
+  const by=k=>sum(inc.filter(r=>r.pay===k)),none=inc.filter(r=>!r.pay);
+  const card=(t,v,cls='')=>`<div class="kc ${cls}"><small>${t}</small><span class="num">${tl(v)}</span></div>`;
+  return `<div class="bar"><button class="btn ghost sm" data-act="kprev" aria-label="Önceki ay">‹</button><h2>Kasa · ${AY[mo-1]} ${y}</h2><button class="btn ghost sm" data-act="knext" aria-label="Sonraki ay">›</button><button class="btn ghost sm" data-act="know">Bu ay</button></div>
+  <div class="kcards">${card('Nakit',by('nakit'))}${card('Havale',by('havale'))}${card('Kart',by('kart'))}${card('Toplam gelir',sum(inc),'in')}${card('Gider',sum(exp),'out')}${card('Net',sum(inc)-sum(exp),'net')}</div>
+  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}Booking: ${bk.length} rezervasyon, ${tl(sum(bk))} (ödeme Booking üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
+  <section class="panel" style="margin:14px 0"><h2>Gelir / gider ekle</h2>
+  <form id="kf" class="row">
+   <label>Tür<select name="type"><option value="gider">Gider</option><option value="gelir">Gelir</option></select></label>
+   <label>Tarih<input type="date" name="d" value="${M===today().slice(0,7)?today():M+'-01'}" required></label>
+   <label style="flex:1;min-width:200px">Açıklama<input name="desc" required placeholder="ör. temizlik malzemesi" autocomplete="off"></label>
+   <label>Tutar (₺)<input type="number" name="amt" min="0" step="1" required style="width:120px"></label>
+   <label>Ödeme<select name="pay"><option value="">—</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></label>
+   <button class="btn">Ekle</button></form></section>
+  <div class="scroll"><table class="kt"><thead><tr><th>Tarih</th><th>Açıklama</th><th class="r">Tutar</th><th>Ödeme</th><th></th></tr></thead><tbody>
+  ${rows.length?rows.map(r=>`<tr class="${r.bk?'bkrow':''}"><td>${fd(r.d)}</td><td>${r.k==='res'?`<button class="lnk" data-act="res" data-id="${r.id}">${esc(r.desc)}</button>`:esc(r.desc)}${r.bk?' <span class="tag t-bk">Booking</span>':''}</td>
+   <td class="r num ${r.type==='gider'?'neg':r.bk?'':'pos'}">${r.type==='gider'?'−':r.bk?'':'+'}${tl(r.amt)}</td>
+   <td>${r.bk?'<span class="note">Booking · ayrı</span>':paySel(r.k,r.id,r.pay)}</td>
+   <td>${r.k==='kasa'?`<button class="btn ghost sm" data-act="delk" data-id="${r.id}" aria-label="Kaydı sil">Sil</button>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="padding:14px">Bu ay kayıt yok.</td></tr>'}
+  </tbody></table></div>`;
 }
 function vAyarlar(){
   const P=S.P;const samples=list().filter(r=>r.sample).length;
@@ -372,7 +421,8 @@ function vForm(m){
   <label>Çıkış<input type="datetime-local" name="e" value="${r.e}" required></label>
   <label class="full">Ad soyad<input name="name" value="${esc(r.name)}" required autocomplete="off"></label>
   <label>Telefon<input name="phone" type="tel" value="${esc(r.phone)}" autocomplete="off"></label>
-  <label>Tutar (₺)<input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"></label>
+  <div class="full seg" role="radiogroup" aria-label="Kaynak"><label><input type="radio" name="src" value="direkt" ${!isBk(r)?'checked':''}> Direkt</label><label class="bkopt"><input type="radio" name="src" value="booking" ${isBk(r)?'checked':''}> Booking</label></div>
+  <label class="full">Tutar (₺)<span class="pricerow"><input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"><select name="pay" ${isBk(r)?'disabled':''} aria-label="Ödeme yöntemi"><option value="">${isBk(r)?'Booking · ödeme ayrı':'Ödeme seç'}</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${r.pay===k?'selected':''}>${t}</option>`).join('')}</select></span></label>
   <label class="full">Not<textarea name="note">${esc(r.note)}</textarea></label>
   </div>
   <p class="calc" id="calc">${esc(p.txt)}${r.price!=null&&r.price!==''&&+r.price!==p.t?' · elle girilen tutar kullanılacak':''}</p>
@@ -399,11 +449,11 @@ function waText(r){return `Merhaba ${r.name}, Çınar Suit rezervasyonunuz oluş
 function vDetail(m){
   const r={id:m.id,...S.res.get(m.id)};if(!S.res.has(m.id))return '<p>Kayıt bulunamadı.</p><div class="acts"><button class="btn" data-act="close">Kapat</button></div>';
   const stt={bekliyor:'Bekleniyor',icerde:'İçeride',cikti:'Çıkış yaptı'}[r.st];
-  return `<h2>Oda ${r.room} · ${esc(r.name)}</h2>
+  return `<h2>Oda ${r.room} · ${esc(r.name)}${bkTag(r)}</h2>
   <dl class="kv"><dt>Durum</dt><dd>${stt}${r.outAt?' ('+fd(r.outAt)+' '+hm(r.outAt)+')':''}</dd>
   <dt>Giriş</dt><dd>${fd(r.s)} ${hm(r.s)}</dd><dt>Çıkış</dt><dd>${fd(r.e)} ${hm(r.e)}</dd>
   <dt>Tür</dt><dd>${sameDay(r)?'Günübirlik':price(r.s,r.e).txt.split(' · ')[0]}</dd>
-  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Tutar</dt><dd>${tl(r.price)}</dd>
+  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Kaynak</dt><dd>${isBk(r)?'<span class="tag t-bk">Booking</span>':'Direkt'}</dd><dt>Tutar</dt><dd>${tl(r.price)} ${isBk(r)?'<span class="note">ödeme Booking üzerinden</span>':paySel('res',r.id,r.pay)}</dd>
   ${r.note?`<dt>Not</dt><dd>${esc(r.note)}</dd>`:''}</dl>
   ${m.wa?`<pre class="msg" id="wa">${esc(waText(r))}</pre>`:''}
   <p class="err">${m.confirm?'Rezervasyon iptal edilsin mi? Oda boşa çıkar.':''}</p>
@@ -421,7 +471,8 @@ function renderModal(){
   el.innerHTML=`<div class="ov" data-act="ovclose"><div class="modal" role="dialog" aria-modal="true">${m.k==='form'?vForm(m):m.k==='room'?vRoom(m):vDetail(m)}</div></div>`;
   const f=el.querySelector('#rf');
   if(f){const first=f.querySelector('[name=name]');if(first&&!m.focused){first.focus();m.focused=1}
-    f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price')});
+    f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price'),src:fdt.get('src')==='booking'?'booking':'direkt',pay:fdt.get('pay')||null});
+      const ps=f.querySelector('[name=pay]');ps.disabled=m.r.src==='booking';ps.options[0].textContent=m.r.src==='booking'?'Booking · ödeme ayrı':'Ödeme seç';if(m.r.src==='booking')ps.value='';
       const p=price(m.r.s,m.r.e),c=m.r.s&&m.r.e?clash(m.r.room,m.r.s,m.r.e,m.id):[];
       f.querySelector('#calc').textContent=p.txt+(m.r.price!=null&&m.r.price!==p.t?' · elle girilen tutar kullanılacak':'');
       f.querySelector('[name=price]').placeholder=p.t;
@@ -430,7 +481,7 @@ function renderModal(){
     f.addEventListener('submit',ev=>{ev.preventDefault();f.dispatchEvent(new Event('input'));
       const r=m.r;if(!r.name.trim()||r.e<=r.s||clash(r.room,r.s,r.e,m.id).length)return;
       const id=m.id||uid(),old=m.id?S.res.get(m.id):null;
-      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:r.price!=null?r.price:price(r.s,r.e).t,st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS()};
+      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:r.price!=null?r.price:price(r.s,r.e).t,st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS(),src:r.src==='booking'?'booking':'direkt',pay:r.src==='booking'?null:(r.pay||null)};
       if(old&&old.sample)rec.sample=true;
       putRes(id,rec);S.modal={k:'detail',id,wa:!m.id};renderModal()})}
 }
@@ -440,13 +491,13 @@ function defQ(){const n=nowS(),s=today()+'T'+pad(Math.min(23,new Date().getHours
 function render(){
   const v=S.view;
   document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
-  const keep=document.activeElement&&document.activeElement.closest('#qf,#pf')?1:0;
+  const keep=document.activeElement&&document.activeElement.closest('#qf,#pf,#kf')?1:0;
   if(keep&&v!=='bugun'&&v!=='ayarlar')return;
   if(keep)return;
-  document.getElementById('app').innerHTML=({bugun:vBugun,takvim:vTakvim,gun:vGun,kat:vKat,ayarlar:vAyarlar}[v]||vBugun)();
+  document.getElementById('app').innerHTML=({bugun:vBugun,takvim:vTakvim,gun:vGun,kat:vKat,kasa:vKasa,ayarlar:vAyarlar}[v]||vBugun)();
   if(S.modal&&S.modal.k!=='form')renderModal();
 }
-function route(){const h=location.hash.slice(1);S.view=['bugun','takvim','gun','kat','ayarlar'].includes(h)?h:'bugun';render();scrollTo(0,0)}
+function route(){const h=location.hash.slice(1);S.view=['bugun','takvim','gun','kat','kasa','ayarlar'].includes(h)?h:'bugun';render();scrollTo(0,0)}
 window.addEventListener('hashchange',route);
 
 document.addEventListener('submit',ev=>{
@@ -455,11 +506,14 @@ document.addEventListener('submit',ev=>{
   if(f.id==='notef'||f.id==='faultf'){ev.preventDefault();const n=+f.dataset.room,t=new FormData(f).get('t').trim();
     if(f.id==='notef'){if(!t)return;putRoom(n,{notes:[...((S.rooms[n]&&S.rooms[n].notes)||[]),{id:uid(),t,at:nowS()}]})}
     else putRoom(n,{ariza:{note:t,at:nowS()}})}
+  if(f.id==='kf'){ev.preventDefault();const d=new FormData(f),amt=+d.get('amt');if(!d.get('desc').trim()||!(amt>0))return;
+    document.activeElement.blur();putKasa(uid(),{type:d.get('type'),d:d.get('d'),desc:d.get('desc').trim(),amt,pay:d.get('pay')||null,created:nowS()})}
   if(f.id==='pf'){ev.preventDefault();const d=new FormData(f);const p={};for(const k in DEF_P)p[k]=+d.get(k)||DEF_P[k];document.activeElement.blur();putP(p)}
 });
-document.addEventListener('change',ev=>{if(ev.target.id==='imp'&&ev.target.files[0]){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);if(!Array.isArray(j.res))throw 0;
-    if(S.mode==='live'){j.res.forEach(r=>{const{id,...o}=r;putRes(id,o)});Object.entries(j.rooms||{}).forEach(([n,o])=>putRoom(n,o));if(j.P)putP({...DEF_P,...j.P})}
-    else{S.res=new Map(j.res.map(r=>{const{id,...o}=r;return[id,o]}));S.rooms=j.rooms||{};S.P={...DEF_P,...(j.P||{})};saveLocal();render()}
+document.addEventListener('change',ev=>{const ps=ev.target.closest('select[data-pay]');if(ps){const id=ps.dataset.id,v=ps.value||null;
+    if(ps.dataset.pay==='res'){const r=S.res.get(id);if(r)putRes(id,{...r,pay:v})}else{const k=S.kasa.get(id);if(k)putKasa(id,{...k,pay:v})}return}if(ev.target.id==='imp'&&ev.target.files[0]){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);if(!Array.isArray(j.res))throw 0;
+    if(S.mode==='live'){j.res.forEach(r=>{const{id,...o}=r;putRes(id,o)});(j.kasa||[]).forEach(k=>{const{id,...o}=k;putKasa(id,o)});Object.entries(j.rooms||{}).forEach(([n,o])=>putRoom(n,o));if(j.P)putP({...DEF_P,...j.P})}
+    else{S.res=new Map(j.res.map(r=>{const{id,...o}=r;return[id,o]}));S.kasa=new Map((j.kasa||[]).map(k=>{const{id,...o}=k;return[id,o]}));S.rooms=j.rooms||{};S.P={...DEF_P,...(j.P||{})};saveLocal();render()}
     S.bkmsg=j.res.length+' kayıt geri yüklendi.';render()}catch(e){S.bkmsg='Bu dosya geçerli bir yedek değil.';render()}};fr.readAsText(ev.target.files[0])}if(ev.target.id==='dpick'&&ev.target.value){S.dayD=ev.target.value;render()}});
 document.addEventListener('click',ev=>{
   const tr=ev.target.closest('[data-track]');
@@ -482,6 +536,9 @@ document.addEventListener('click',ev=>{
   case 'dprev':S.dayD=addDays(S.dayD,-1);render();break;case 'dnext':S.dayD=addDays(S.dayD,1);render();break;case 'dnow':S.dayD=today();render();break;
   case 'in':{const r=S.res.get(id);if(r)putRes(id,{...r,st:'icerde'});if(S.modal)renderModal();break}
   case 'out':{const r=S.res.get(id);if(r){const n=nowS();putRes(id,{...r,st:'cikti',outAt:n<r.e?n:r.e});putRoom(r.room,{state:'kirli',at:n})}if(S.modal)renderModal();break}
+  case 'kprev':case 'knext':{const[y,m]=S.kmonth.split('-').map(Number);const d=new Date(y,m-1+(a==='kprev'?-1:1),1);S.kmonth=d.getFullYear()+'-'+pad(d.getMonth()+1);render();break}
+  case 'know':S.kmonth=today().slice(0,7);render();break;
+  case 'delk':if(t.dataset.sure){delKasa(id)}else{t.dataset.sure=1;t.textContent='Emin misin?';t.classList.add('warn')}break;
   case 'room':S.modal={k:'room',n:room};renderModal();break;
   case 'unfault':putRoom(room,{ariza:null});break;
   case 'delnote':putRoom(room,{notes:((S.rooms[room]&&S.rooms[room].notes)||[]).filter(x=>x.id!==t.dataset.nid)});break;
@@ -493,8 +550,8 @@ document.addEventListener('click',ev=>{
   case 'cancel':S.modal.confirm=1;renderModal();break;
   case 'nocancel':S.modal.confirm=0;renderModal();break;
   case 'yescancel':{const r=S.res.get(S.modal.id);if(r)putRes(S.modal.id,{...r,st:'iptal'});S.modal=null;renderModal();break}
-  case 'backup':{const txt=JSON.stringify({res:list(),rooms:S.rooms,P:S.P});const m=document.getElementById('bkmsg');try{navigator.clipboard.writeText(txt).then(()=>{m.textContent='Yedek panoya kopyalandı ('+S.res.size+' kayıt).'},()=>{m.textContent='Kopyalanamadı.'})}catch(e){m.textContent='Kopyalanamadı.'}break}
-  case 'dl':{const txt=JSON.stringify({res:list(),rooms:S.rooms,P:S.P},null,1);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download='cinar-suit-yedek-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();try{localStorage.setItem(LKEY+'-lastbk',nowS())}catch(e){}document.getElementById('bkmsg').textContent='Yedek indirildi ('+S.res.size+' kayıt).';break}
+  case 'backup':{const txt=JSON.stringify({res:list(),kasa:[...S.kasa].map(([id,k])=>({id,...k})),rooms:S.rooms,P:S.P});const m=document.getElementById('bkmsg');try{navigator.clipboard.writeText(txt).then(()=>{m.textContent='Yedek panoya kopyalandı ('+S.res.size+' kayıt).'},()=>{m.textContent='Kopyalanamadı.'})}catch(e){m.textContent='Kopyalanamadı.'}break}
+  case 'dl':{const txt=JSON.stringify({res:list(),kasa:[...S.kasa].map(([id,k])=>({id,...k})),rooms:S.rooms,P:S.P},null,1);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download='cinar-suit-yedek-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();try{localStorage.setItem(LKEY+'-lastbk',nowS())}catch(e){}document.getElementById('bkmsg').textContent='Yedek indirildi ('+S.res.size+' kayıt).';break}
   case 'delsamples':list().filter(r=>r.sample).forEach(r=>delRes(r.id));break;
   }
 });
