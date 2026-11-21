@@ -20,7 +20,7 @@
 --dirty:light-dark(#b4441b,#f0905f);--dirtyS:light-dark(#f7e0d3,#3a2418);
 --clean:light-dark(#2e7d4f,#72cf98);--cleanS:light-dark(#dcefe2,#1b3325);
 --day:light-dark(#9a6a12,#e2b65e);--dayS:light-dark(#f3e4c2,#3a2f17);
---wk:light-dark(#ece4d6,#172021);--bk:light-dark(#2453a6,#7ea3f2);--bkS:light-dark(#dde6f7,#1c2a45)}
+--wk:light-dark(#ece4d6,#172021);--bk:light-dark(#2453a6,#7ea3f2);--bkS:light-dark(#dde6f7,#1c2a45);--ab:light-dark(#c2185b,#f48fb1);--abS:light-dark(#f9dde8,#3d1a29)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:clip}
@@ -71,7 +71,10 @@ textarea{min-height:64px;resize:vertical}
 .tile small.nt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);opacity:.8}
 .t-fault{background:var(--ink);color:var(--bg)}
 .fl{color:var(--dirty);font-weight:600}
-.t-bk{background:var(--bk);color:#fff}
+.t-bk{background:var(--bk);color:#fff}.t-ab{background:var(--ab);color:#fff}
+.month .n.ab,.month .dd.ab{background:var(--ab)}.blk.ab{background:var(--ab);color:#fff}
+.tile.ab{border-inline-start-color:var(--ab)}.tile.occ.ab{background:var(--abS)}
+.seg label.abopt:has(input:checked){border-color:var(--ab);background:var(--abS)}
 .month .n.bk{background:var(--bk)}.month .dd.bk{background:var(--bk)}.blk.bk{background:var(--bk);color:#fff}
 .tile.bk{border-inline-start-color:var(--bk)}.tile.occ.bk{background:var(--bkS)}
 .seg{display:flex;gap:8px}.seg label{flex-direction:row;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--ink);font-size:15px;cursor:pointer}
@@ -234,8 +237,10 @@ function price(s,e){
   return{t,txt:(N.length===1&&s.slice(0,10)===e.slice(0,10)?'Tam gün (7 saati geçiyor)':(hs+hi)+' gece')+' · '+[hi?hi+'×'+tl(P.geceHi):'',hs?hs+'×'+tl(P.geceHs)+' (Cuma/Cumartesi)':''].filter(Boolean).join(' + ')};
 }
 const PAY={nakit:'Nakit',havale:'Havale',kart:'Kart'};
-const isBk=r=>r&&r.src==='booking';
-const bkTag=r=>isBk(r)?' <span class="tag t-bk">Booking</span>':'';
+const OTA={booking:{t:'Booking',c:'bk'},airbnb:{t:'Airbnb',c:'ab'}}; // ödemesi platform üzerinden, kasaya girmez
+const isBk=r=>!!(r&&OTA[r.src]);
+const otaC=r=>isBk(r)?OTA[r.src].c:'',otaT=r=>isBk(r)?OTA[r.src].t:'';
+const bkTag=r=>isBk(r)?` <span class="tag t-${otaC(r)}">${otaT(r)}</span>`:'';
 const paySel=(kind,id,v,dis)=>`<select class="pay" data-pay="${kind}" data-id="${id}" ${dis?'disabled':''} aria-label="Ödeme yöntemi"><option value="">Ödeme seç</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('')}</select>`;
 const rstate=n=>(S.rooms[n]&&S.rooms[n].state)||'temiz';
 const fault=n=>(S.rooms[n]&&S.rooms[n].ariza)||null;
@@ -288,7 +293,7 @@ function vBoard(){
   return `<div class="floors">${FLOORS.map((f,i)=>`<div class="floor"><span>${i+1}. kat</span><div class="tiles">${f.map(n=>{
     const o=occNow(n),c=o?null:comingToday(n),nx=nextRes(n),d=rstate(n)==='kirli';
     const late=o&&o.st==='icerde'&&o.e<=nowS();
-    const cls=(o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'')+(isBk(o||c)?' bk':'');
+    const cls=(o?'occ':c?'soon'+(d?' dirty':''):d?'dirty':'')+(isBk(o||c)?' '+otaC(o||c):'');
     const l1=o?esc(o.name)+bkTag(o)+(o.st==='bekliyor'?' <span class="tag t-day">gelmedi</span>':''):c?esc(c.name)+bkTag(c)+(d?' <span class="tag t-dirty">kirli</span>':''):d?'Boş · kirli':'Boş · temiz';
     const l2=o?(late?'Çıkış saati geçti ('+hm(o.e)+')':'Çıkış '+(o.e.slice(0,10)===today()?hm(o.e):fd(o.e)+' '+hm(o.e))):c?'Bugün giriş '+hm(c.s):nx?'Sonraki: '+fd(nx.s)+' '+hm(nx.s):'Yaklaşan rezervasyon yok';
     const F=fault(n),NT=notes(n);
@@ -326,15 +331,15 @@ function vTakvim(){
       let h='';
       if(nt){const NN=nightsOf(nt.s,effEnd(nt)),st=NN[0]===d,en=NN[NN.length-1]===d;
         const len=NN.filter(x=>x>=d&&x<=days[N-1]).length;
-        h=`<div class="n ${st?'st':''} ${en?'en':''} ${isBk(nt)?'bk':''}" data-act="res" data-id="${nt.id}" title="${esc(nt.name)} · ${hm(nt.s)}–${hm(effEnd(nt))}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
-      if(du.length)h+=`<div class="dd ${du.some(isBk)?'bk':''}" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
+        h=`<div class="n ${st?'st':''} ${en?'en':''} ${otaC(nt)}" data-act="res" data-id="${nt.id}" title="${esc(nt.name)} · ${hm(nt.s)}–${hm(effEnd(nt))}">${st||+d.slice(8)===1?`<span style="max-width:${len*47-16}px">${esc(nt.name)}</span>`:''}</div>`}
+      if(du.length)h+=`<div class="dd ${otaC(du.find(isBk))}" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
       return `<td class="${[5,6].includes(dow(d))?'wk':''} ${d===t?'today':''}" data-act="day" data-d="${d}" title="Oda ${n} · ${fd(d)}">${h}</td>`}).join('')}</tr>`}).join('');
   const occ=days.reduce((a,d)=>a+ROOMS.filter(n=>L.some(r=>r.room===n&&covers(r,d))).length,0);
   const rev=L.filter(r=>r.s.slice(0,7)===S.month).reduce((a,r)=>a+(+r.price||0),0);
   return `<div class="bar"><button class="btn ghost sm" data-act="mprev" aria-label="Önceki ay">‹</button><h2>${AY[m-1]} ${y}</h2><button class="btn ghost sm" data-act="mnext" aria-label="Sonraki ay">›</button>
   <button class="btn ghost sm" data-act="mnow">Bu ay</button><span class="note" style="margin-inline-start:auto">Doluluk %${Math.round(occ/(N*ROOMS.length)*100)} · Bu ay girişli rezervasyon tutarı ${tl(rev)}</span></div>
   <div class="scroll"><table class="month"><thead><tr><th class="rn">Oda</th>${head}</tr></thead><tbody>${body}</tbody></table></div>
-  <div class="legend"><span><i style="background:var(--teal)"></i>Gecelik konaklama</span><span><i style="background:var(--day)"></i>Günübirlik (saatler)</span><span><i style="background:var(--bk)"></i>Booking</span><span><i style="background:var(--wk);border:1px solid var(--line)"></i>Cuma/Cumartesi gecesi</span><span>Bir güne tıklayınca saatlik görünüm açılır</span></div>`;
+  <div class="legend"><span><i style="background:var(--teal)"></i>Gecelik konaklama</span><span><i style="background:var(--day)"></i>Günübirlik (saatler)</span><span><i style="background:var(--bk)"></i>Booking</span><span><i style="background:var(--ab)"></i>Airbnb</span><span><i style="background:var(--wk);border:1px solid var(--line)"></i>Cuma/Cumartesi gecesi</span><span>Bir güne tıklayınca saatlik görünüm açılır</span></div>`;
 }
 function vGun(){
   const d=S.dayD,isT=d===today();
@@ -343,7 +348,7 @@ function vGun(){
   const rows=ROOMS.map(n=>{
     const bl=L.filter(r=>r.room===n).map(r=>{
       const a=r.s<d+'T00:00'?0:minOf(r.s),b=effEnd(r)>=addDays(d,1)+'T00:00'?1440:minOf(effEnd(r));
-      return `<button class="blk ${isBk(r)?'bk':sameDay(r)?'d':''} ${r.st==='cikti'?'out':''}" data-act="res" data-id="${r.id}" style="left:${a/14.4}%;width:${Math.max(b-a,20)/14.4}%">${esc(r.name)}<small>${r.s<d+'T00:00'?'…':hm(r.s)}–${effEnd(r)>=addDays(d,1)+'T00:00'?'…':hm(effEnd(r))}</small></button>`}).join('');
+      return `<button class="blk ${isBk(r)?otaC(r):sameDay(r)?'d':''} ${r.st==='cikti'?'out':''}" data-act="res" data-id="${r.id}" style="left:${a/14.4}%;width:${Math.max(b-a,20)/14.4}%">${esc(r.name)}<small>${r.s<d+'T00:00'?'…':hm(r.s)}–${effEnd(r)>=addDays(d,1)+'T00:00'?'…':hm(effEnd(r))}</small></button>`}).join('');
     return `<div class="rl">${n}<small>${TYPE(n)}${rstate(n)==='kirli'&&isT?' · kirli':''}${fault(n)?' · <b class="fl">arızalı</b>':''}</small></div><div class="track" data-track="${n}">${bl}${nowP!=null?`<div class="nowline" style="left:${nowP}%"></div>`:''}</div>`}).join('');
   return `<div class="bar"><button class="btn ghost sm" data-act="dprev" aria-label="Önceki gün">‹</button><h2>${fd(d)} ${d.slice(0,4)}</h2><button class="btn ghost sm" data-act="dnext" aria-label="Sonraki gün">›</button>
   <input type="date" id="dpick" value="${d}"><button class="btn ghost sm" data-act="dnow">Bugün</button><span class="note" style="margin-inline-start:auto">Boş bir yere tıkla: o oda ve saatle yeni rezervasyon</span></div>
@@ -367,7 +372,7 @@ function vKat(){
 function vKasa(){
   const M=S.kmonth,[y,mo]=M.split('-').map(Number);
   const R=list().filter(r=>live(r)&&r.s.slice(0,7)===M);
-  const rows=[...R.map(r=>({k:'res',id:r.id,d:r.s.slice(0,10),type:'gelir',bk:isBk(r),desc:'Oda '+r.room+' · '+r.name+(sameDay(r)?' · günübirlik':' · '+price(r.s,r.e).txt.split(' · ')[0]),amt:+r.price||0,pay:r.pay||''})),
+  const rows=[...R.map(r=>({k:'res',id:r.id,d:r.s.slice(0,10),type:'gelir',bk:isBk(r),ota:otaT(r),oc:otaC(r),desc:'Oda '+r.room+' · '+r.name+(sameDay(r)?' · günübirlik':' · '+price(r.s,r.e).txt.split(' · ')[0]),amt:+r.price||0,pay:r.pay||''})),
     ...[...S.kasa].filter(([id,k])=>k.d.slice(0,7)===M).map(([id,k])=>({k:'kasa',id,d:k.d,type:k.type,desc:k.desc,amt:+k.amt||0,pay:k.pay||''}))].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
   const inc=rows.filter(r=>r.type==='gelir'&&!r.bk),exp=rows.filter(r=>r.type==='gider'),bk=rows.filter(r=>r.bk);
   const sum=a=>a.reduce((x,r)=>x+r.amt,0);
@@ -376,7 +381,7 @@ function vKasa(){
   const mc=k=>card(PAY[k],gi(k)-go(k),'',`+${tl(gi(k))} gelir · −${tl(go(k))} gider`);
   return `<div class="bar"><button class="btn ghost sm" data-act="kprev" aria-label="Önceki ay">‹</button><h2>Kasa · ${AY[mo-1]} ${y}</h2><button class="btn ghost sm" data-act="knext" aria-label="Sonraki ay">›</button><button class="btn ghost sm" data-act="know">Bu ay</button></div>
   <div class="kcards">${mc('nakit')}${mc('havale')}${mc('kart')}${card('Toplam gelir',sum(inc),'in')}${card('Gider',sum(exp),'out')}${card('Net',sum(inc)-sum(exp),'net')}</div>
-  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}${enone.length?`<b class="fl">${enone.length} giderde ödeme yöntemi yok</b> · `:''}Nakit, Havale ve Kart kutuları o yöntemle alınan gelirden aynı yöntemle ödenen gideri düşer. · Booking: ${bk.length} rezervasyon, ${tl(sum(bk))} (ödeme Booking üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
+  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}${enone.length?`<b class="fl">${enone.length} giderde ödeme yöntemi yok</b> · `:''}Nakit, Havale ve Kart kutuları o yöntemle alınan gelirden aynı yöntemle ödenen gideri düşer. · ${Object.values(OTA).map(o=>{const a=bk.filter(r=>r.ota===o.t);return o.t+': '+a.length+' rezervasyon, '+tl(sum(a))}).join(' · ')} (ödemeleri platform üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
   <section class="panel" style="margin:14px 0"><h2>Gelir / gider ekle</h2>
   <form id="kf" class="row">
    <label>Tür<select name="type"><option value="gider">Gider</option><option value="gelir">Gelir</option></select></label>
@@ -386,9 +391,9 @@ function vKasa(){
    <label>Ödeme<select name="pay" required>${Object.entries(PAY).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></label>
    <button class="btn">Ekle</button></form></section>
   <div class="scroll"><table class="kt"><thead><tr><th>Tarih</th><th>Açıklama</th><th class="r">Tutar</th><th>Ödeme</th><th></th></tr></thead><tbody>
-  ${rows.length?rows.map(r=>`<tr class="${r.bk?'bkrow':''}"><td>${fd(r.d)}</td><td>${r.k==='res'?`<button class="lnk" data-act="res" data-id="${r.id}">${esc(r.desc)}</button>`:esc(r.desc)}${r.bk?' <span class="tag t-bk">Booking</span>':''}</td>
+  ${rows.length?rows.map(r=>`<tr class="${r.bk?'bkrow':''}"><td>${fd(r.d)}</td><td>${r.k==='res'?`<button class="lnk" data-act="res" data-id="${r.id}">${esc(r.desc)}</button>`:esc(r.desc)}${r.bk?` <span class="tag t-${r.oc}">${r.ota}</span>`:''}</td>
    <td class="r num ${r.type==='gider'?'neg':r.bk?'':'pos'}">${r.type==='gider'?'−':r.bk?'':'+'}${tl(r.amt)}</td>
-   <td>${r.bk?'<span class="note">Booking · ayrı</span>':paySel(r.k,r.id,r.pay)}</td>
+   <td>${r.bk?`<span class="note">${r.ota} · ayrı</span>`:paySel(r.k,r.id,r.pay)}</td>
    <td>${r.k==='kasa'?`<button class="btn ghost sm" data-act="delk" data-id="${r.id}" aria-label="Kaydı sil">Sil</button>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="padding:14px">Bu ay kayıt yok.</td></tr>'}
   </tbody></table></div>`;
 }
@@ -422,8 +427,8 @@ function vForm(m){
   <label>Çıkış<input type="datetime-local" name="e" value="${r.e}" required></label>
   <label class="full">Ad soyad<input name="name" value="${esc(r.name)}" required autocomplete="off"></label>
   <label>Telefon<input name="phone" type="tel" value="${esc(r.phone)}" autocomplete="off"></label>
-  <div class="full seg" role="radiogroup" aria-label="Kaynak"><label><input type="radio" name="src" value="direkt" ${!isBk(r)?'checked':''}> Direkt</label><label class="bkopt"><input type="radio" name="src" value="booking" ${isBk(r)?'checked':''}> Booking</label></div>
-  <label class="full">Tutar (₺)<span class="pricerow"><input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"><select name="pay" ${isBk(r)?'disabled':''} aria-label="Ödeme yöntemi"><option value="">${isBk(r)?'Booking · ödeme ayrı':'Ödeme seç'}</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${r.pay===k?'selected':''}>${t}</option>`).join('')}</select></span></label>
+  <div class="full seg" role="radiogroup" aria-label="Kaynak"><label><input type="radio" name="src" value="direkt" ${!isBk(r)?'checked':''}> Direkt</label><label class="bkopt"><input type="radio" name="src" value="booking" ${r.src==='booking'?'checked':''}> Booking</label><label class="abopt"><input type="radio" name="src" value="airbnb" ${r.src==='airbnb'?'checked':''}> Airbnb</label></div>
+  <label class="full">Tutar (₺)<span class="pricerow"><input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"><select name="pay" ${isBk(r)?'disabled':''} aria-label="Ödeme yöntemi"><option value="">${isBk(r)?otaT(r)+' · ödeme ayrı':'Ödeme seç'}</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${r.pay===k?'selected':''}>${t}</option>`).join('')}</select></span></label>
   <label class="full">Not<textarea name="note">${esc(r.note)}</textarea></label>
   </div>
   <p class="calc" id="calc">${esc(p.txt)}${r.price!=null&&r.price!==''&&+r.price!==p.t?' · elle girilen tutar kullanılacak':''}</p>
@@ -454,7 +459,7 @@ function vDetail(m){
   <dl class="kv"><dt>Durum</dt><dd>${stt}${r.outAt?' ('+fd(r.outAt)+' '+hm(r.outAt)+')':''}</dd>
   <dt>Giriş</dt><dd>${fd(r.s)} ${hm(r.s)}</dd><dt>Çıkış</dt><dd>${fd(r.e)} ${hm(r.e)}</dd>
   <dt>Tür</dt><dd>${sameDay(r)?'Günübirlik':price(r.s,r.e).txt.split(' · ')[0]}</dd>
-  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Kaynak</dt><dd>${isBk(r)?'<span class="tag t-bk">Booking</span>':'Direkt'}</dd><dt>Tutar</dt><dd>${tl(r.price)} ${isBk(r)?'<span class="note">ödeme Booking üzerinden</span>':paySel('res',r.id,r.pay)}</dd>
+  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Kaynak</dt><dd>${isBk(r)?bkTag(r):'Direkt'}</dd><dt>Tutar</dt><dd>${tl(r.price)} ${isBk(r)?`<span class="note">ödeme ${otaT(r)} üzerinden</span>`:paySel('res',r.id,r.pay)}</dd>
   ${r.note?`<dt>Not</dt><dd>${esc(r.note)}</dd>`:''}</dl>
   ${m.wa?`<pre class="msg" id="wa">${esc(waText(r))}</pre>`:''}
   <p class="err">${m.confirm?'Rezervasyon iptal edilsin mi? Oda boşa çıkar.':''}</p>
@@ -472,8 +477,8 @@ function renderModal(){
   el.innerHTML=`<div class="ov" data-act="ovclose"><div class="modal" role="dialog" aria-modal="true">${m.k==='form'?vForm(m):m.k==='room'?vRoom(m):vDetail(m)}</div></div>`;
   const f=el.querySelector('#rf');
   if(f){const first=f.querySelector('[name=name]');if(first&&!m.focused){first.focus();m.focused=1}
-    f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price'),src:fdt.get('src')==='booking'?'booking':'direkt',pay:fdt.get('pay')||null});
-      const ps=f.querySelector('[name=pay]');ps.disabled=m.r.src==='booking';ps.options[0].textContent=m.r.src==='booking'?'Booking · ödeme ayrı':'Ödeme seç';if(m.r.src==='booking')ps.value='';
+    f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price'),src:OTA[fdt.get('src')]?fdt.get('src'):'direkt',pay:fdt.get('pay')||null});
+      const ps=f.querySelector('[name=pay]');const ota=OTA[m.r.src];ps.disabled=!!ota;ps.options[0].textContent=ota?ota.t+' · ödeme ayrı':'Ödeme seç';if(ota)ps.value='';
       const p=price(m.r.s,m.r.e),c=m.r.s&&m.r.e?clash(m.r.room,m.r.s,m.r.e,m.id):[];
       f.querySelector('#calc').textContent=p.txt+(m.r.price!=null&&m.r.price!==p.t?' · elle girilen tutar kullanılacak':'');
       f.querySelector('[name=price]').placeholder=p.t;
@@ -482,7 +487,7 @@ function renderModal(){
     f.addEventListener('submit',ev=>{ev.preventDefault();f.dispatchEvent(new Event('input'));
       const r=m.r;if(!r.name.trim()||r.e<=r.s||clash(r.room,r.s,r.e,m.id).length)return;
       const id=m.id||uid(),old=m.id?S.res.get(m.id):null;
-      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:r.price!=null?r.price:price(r.s,r.e).t,st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS(),src:r.src==='booking'?'booking':'direkt',pay:r.src==='booking'?null:(r.pay||null)};
+      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:r.price!=null?r.price:price(r.s,r.e).t,st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS(),src:OTA[r.src]?r.src:'direkt',pay:OTA[r.src]?null:(r.pay||null)};
       if(old&&old.sample)rec.sample=true;
       putRes(id,rec);S.modal={k:'detail',id,wa:!m.id};renderModal()})}
 }
