@@ -71,7 +71,8 @@ textarea{min-height:64px;resize:vertical}
 .tile small.nt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);opacity:.8}
 .t-fault{background:var(--ink);color:var(--bg)}
 .fl{color:var(--dirty);font-weight:600}
-.t-bk{background:var(--bk);color:#fff}.t-ab{background:var(--ab);color:#fff}
+.t-bk{background:var(--bk);color:#fff}[hidden]{display:none!important}
+.otabox{margin:0;padding:10px 12px;border-radius:8px;background:var(--bg);border:1px dashed var(--line);color:var(--mute)}.otabox b{color:var(--ink)}.t-ab{background:var(--ab);color:#fff}
 .month .n.ab,.month .dd.ab{background:var(--ab)}.blk.ab{background:var(--ab);color:#fff}
 .tile.ab{border-inline-start-color:var(--ab)}.tile.occ.ab{background:var(--abS)}
 .seg label.abopt:has(input:checked){border-color:var(--ab);background:var(--abS)}
@@ -335,7 +336,7 @@ function vTakvim(){
       if(du.length)h+=`<div class="dd ${otaC(du.find(isBk))}" data-act="res" data-id="${du[0].id}">${du.length>1?du.length+' günübirlik':hm(du[0].s).slice(0,2)+'–'+hm(du[0].e).slice(0,2)}</div>`;
       return `<td class="${[5,6].includes(dow(d))?'wk':''} ${d===t?'today':''}" data-act="day" data-d="${d}" title="Oda ${n} · ${fd(d)}">${h}</td>`}).join('')}</tr>`}).join('');
   const occ=days.reduce((a,d)=>a+ROOMS.filter(n=>L.some(r=>r.room===n&&covers(r,d))).length,0);
-  const rev=L.filter(r=>r.s.slice(0,7)===S.month).reduce((a,r)=>a+(+r.price||0),0);
+  const rev=L.filter(r=>r.s.slice(0,7)===S.month&&!isBk(r)).reduce((a,r)=>a+(+r.price||0),0);
   return `<div class="bar"><button class="btn ghost sm" data-act="mprev" aria-label="Önceki ay">‹</button><h2>${AY[m-1]} ${y}</h2><button class="btn ghost sm" data-act="mnext" aria-label="Sonraki ay">›</button>
   <button class="btn ghost sm" data-act="mnow">Bu ay</button><span class="note" style="margin-inline-start:auto">Doluluk %${Math.round(occ/(N*ROOMS.length)*100)} · Bu ay girişli rezervasyon tutarı ${tl(rev)}</span></div>
   <div class="scroll"><table class="month"><thead><tr><th class="rn">Oda</th>${head}</tr></thead><tbody>${body}</tbody></table></div>
@@ -381,7 +382,7 @@ function vKasa(){
   const mc=k=>card(PAY[k],gi(k)-go(k),'',`+${tl(gi(k))} gelir · −${tl(go(k))} gider`);
   return `<div class="bar"><button class="btn ghost sm" data-act="kprev" aria-label="Önceki ay">‹</button><h2>Kasa · ${AY[mo-1]} ${y}</h2><button class="btn ghost sm" data-act="knext" aria-label="Sonraki ay">›</button><button class="btn ghost sm" data-act="know">Bu ay</button></div>
   <div class="kcards">${mc('nakit')}${mc('havale')}${mc('kart')}${card('Toplam gelir',sum(inc),'in')}${card('Gider',sum(exp),'out')}${card('Net',sum(inc)-sum(exp),'net')}</div>
-  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}${enone.length?`<b class="fl">${enone.length} giderde ödeme yöntemi yok</b> · `:''}Nakit, Havale ve Kart kutuları o yöntemle alınan gelirden aynı yöntemle ödenen gideri düşer. · ${Object.values(OTA).map(o=>{const a=bk.filter(r=>r.ota===o.t);return o.t+': '+a.length+' rezervasyon, '+tl(sum(a))}).join(' · ')} (ödemeleri platform üzerinden, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
+  <p class="note">${none.length?`<b class="fl">${none.length} gelirde ödeme yöntemi seçilmemiş (${tl(sum(none))})</b>, toplam gelire dahil ama yukarıdaki üç kutuya girmiyor. · `:''}${enone.length?`<b class="fl">${enone.length} giderde ödeme yöntemi yok</b> · `:''}Nakit, Havale ve Kart kutuları o yöntemle alınan gelirden aynı yöntemle ödenen gideri düşer. · ${Object.values(OTA).map(o=>{const a=bk.filter(r=>r.ota===o.t);return o.t+': '+a.length+' rezervasyon'}).join(' · ')} (fiyat ve ödeme platformda, kasaya dahil değil). Oda gelirleri giriş gününe yazılır, iptaller düşülür.</p>
   <section class="panel" style="margin:14px 0"><h2>Gelir / gider ekle</h2>
   <form id="kf" class="row">
    <label>Tür<select name="type"><option value="gider">Gider</option><option value="gelir">Gelir</option></select></label>
@@ -392,7 +393,7 @@ function vKasa(){
    <button class="btn">Ekle</button></form></section>
   <div class="scroll"><table class="kt"><thead><tr><th>Tarih</th><th>Açıklama</th><th class="r">Tutar</th><th>Ödeme</th><th></th></tr></thead><tbody>
   ${rows.length?rows.map(r=>`<tr class="${r.bk?'bkrow':''}"><td>${fd(r.d)}</td><td>${r.k==='res'?`<button class="lnk" data-act="res" data-id="${r.id}">${esc(r.desc)}</button>`:esc(r.desc)}${r.bk?` <span class="tag t-${r.oc}">${r.ota}</span>`:''}</td>
-   <td class="r num ${r.type==='gider'?'neg':r.bk?'':'pos'}">${r.type==='gider'?'−':r.bk?'':'+'}${tl(r.amt)}</td>
+   <td class="r num ${r.type==='gider'?'neg':r.bk?'':'pos'}">${r.bk?'—':(r.type==='gider'?'−':'+')+tl(r.amt)}</td>
    <td>${r.bk?`<span class="note">${r.ota} · ayrı</span>`:paySel(r.k,r.id,r.pay)}</td>
    <td>${r.k==='kasa'?`<button class="btn ghost sm" data-act="delk" data-id="${r.id}" aria-label="Kaydı sil">Sil</button>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="padding:14px">Bu ay kayıt yok.</td></tr>'}
   </tbody></table></div>`;
@@ -428,10 +429,11 @@ function vForm(m){
   <label class="full">Ad soyad<input name="name" value="${esc(r.name)}" required autocomplete="off"></label>
   <label>Telefon<input name="phone" type="tel" value="${esc(r.phone)}" autocomplete="off"></label>
   <div class="full seg" role="radiogroup" aria-label="Kaynak"><label><input type="radio" name="src" value="direkt" ${!isBk(r)?'checked':''}> Direkt</label><label class="bkopt"><input type="radio" name="src" value="booking" ${r.src==='booking'?'checked':''}> Booking</label><label class="abopt"><input type="radio" name="src" value="airbnb" ${r.src==='airbnb'?'checked':''}> Airbnb</label></div>
-  <label class="full">Tutar (₺)<span class="pricerow"><input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"><select name="pay" ${isBk(r)?'disabled':''} aria-label="Ödeme yöntemi"><option value="">${isBk(r)?otaT(r)+' · ödeme ayrı':'Ödeme seç'}</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${r.pay===k?'selected':''}>${t}</option>`).join('')}</select></span></label>
+  <p class="full otabox" id="obox" ${isBk(r)?'':'hidden'}>Tutar: <b id="oname">${otaT(r)}</b> · fiyat ve ödeme platformda</p>
+  <label class="full" id="prow" ${isBk(r)?'hidden':''}>Tutar (₺)<span class="pricerow"><input type="number" name="price" value="${r.price??''}" placeholder="${p.t}"><select name="pay" ${isBk(r)?'disabled':''} aria-label="Ödeme yöntemi"><option value="">${isBk(r)?otaT(r)+' · ödeme ayrı':'Ödeme seç'}</option>${Object.entries(PAY).map(([k,t])=>`<option value="${k}" ${r.pay===k?'selected':''}>${t}</option>`).join('')}</select></span></label>
   <label class="full">Not<textarea name="note">${esc(r.note)}</textarea></label>
   </div>
-  <p class="calc" id="calc">${esc(p.txt)}${r.price!=null&&r.price!==''&&+r.price!==p.t?' · elle girilen tutar kullanılacak':''}</p>
+  <p class="calc" id="calc" ${isBk(r)?'hidden':''}>${esc(p.txt)}${r.price!=null&&r.price!==''&&+r.price!==p.t?' · elle girilen tutar kullanılacak':''}</p>
   <p class="err" id="ferr">${fault(+r.room)?'Uyarı: oda '+r.room+' arızalı ('+esc(fault(+r.room).note||'not yok')+')':''}</p>
   <p class="err" id="cerr">${c.length?'Çakışma: oda '+r.room+' bu aralıkta dolu ('+esc(c[0].name)+', '+fd(c[0].s)+' '+hm(c[0].s)+'–'+hm(effEnd(c[0]))+')':r.e<=r.s?'Çıkış, girişten sonra olmalı.':''}</p>
   <div class="acts"><button type="button" class="btn ghost" data-act="close">Vazgeç</button><button class="btn">${m.id?'Değişiklikleri kaydet':'Rezervasyonu kaydet'}</button></div></form>`;
@@ -451,7 +453,7 @@ function vRoom(m){
   <form id="notef" class="row" data-room="${n}" style="margin-top:8px"><input name="t" placeholder="Not ekle, ör. minibar eksik" style="flex:1;min-width:200px" autocomplete="off"><button class="btn">Not ekle</button></form>
   <div class="acts"><button class="btn ghost" data-act="close">Kapat</button></div>`;
 }
-function waText(r){return `Merhaba ${r.name}, Çınar Suit rezervasyonunuz oluşturuldu.\nOda: ${r.room} (${TYPE(r.room)})\nGiriş: ${fd(r.s)} ${hm(r.s)}\nÇıkış: ${fd(r.e)} ${hm(r.e)}\nKişi: ${r.g}\nTutar: ${tl(r.price)}\nİyi günler dileriz.`}
+function waText(r){return `Merhaba ${r.name}, Çınar Suit rezervasyonunuz oluşturuldu.\nOda: ${r.room} (${TYPE(r.room)})\nGiriş: ${fd(r.s)} ${hm(r.s)}\nÇıkış: ${fd(r.e)} ${hm(r.e)}\nKişi: ${r.g}${isBk(r)?'':'\nTutar: '+tl(r.price)}\nİyi günler dileriz.`}
 function vDetail(m){
   const r={id:m.id,...S.res.get(m.id)};if(!S.res.has(m.id))return '<p>Kayıt bulunamadı.</p><div class="acts"><button class="btn" data-act="close">Kapat</button></div>';
   const stt={bekliyor:'Bekleniyor',icerde:'İçeride',cikti:'Çıkış yaptı'}[r.st];
@@ -459,7 +461,7 @@ function vDetail(m){
   <dl class="kv"><dt>Durum</dt><dd>${stt}${r.outAt?' ('+fd(r.outAt)+' '+hm(r.outAt)+')':''}</dd>
   <dt>Giriş</dt><dd>${fd(r.s)} ${hm(r.s)}</dd><dt>Çıkış</dt><dd>${fd(r.e)} ${hm(r.e)}</dd>
   <dt>Tür</dt><dd>${sameDay(r)?'Günübirlik':price(r.s,r.e).txt.split(' · ')[0]}</dd>
-  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Kaynak</dt><dd>${isBk(r)?bkTag(r):'Direkt'}</dd><dt>Tutar</dt><dd>${tl(r.price)} ${isBk(r)?`<span class="note">ödeme ${otaT(r)} üzerinden</span>`:paySel('res',r.id,r.pay)}</dd>
+  <dt>Kişi</dt><dd>${r.g}</dd><dt>Telefon</dt><dd>${esc(r.phone)||'—'}</dd><dt>Kaynak</dt><dd>${isBk(r)?bkTag(r):'Direkt'}</dd><dt>Tutar</dt><dd>${isBk(r)?otaT(r)+' <span class="note">· fiyat ve ödeme platformda</span>':tl(r.price)+' '+paySel('res',r.id,r.pay)}</dd>
   ${r.note?`<dt>Not</dt><dd>${esc(r.note)}</dd>`:''}</dl>
   ${m.wa?`<pre class="msg" id="wa">${esc(waText(r))}</pre>`:''}
   <p class="err">${m.confirm?'Rezervasyon iptal edilsin mi? Oda boşa çıkar.':''}</p>
@@ -478,7 +480,7 @@ function renderModal(){
   const f=el.querySelector('#rf');
   if(f){const first=f.querySelector('[name=name]');if(first&&!m.focused){first.focus();m.focused=1}
     f.addEventListener('input',()=>{const fdt=new FormData(f);Object.assign(m.r,{room:+fdt.get('room'),s:fdt.get('s'),e:fdt.get('e'),g:+fdt.get('g'),name:fdt.get('name'),phone:fdt.get('phone'),note:fdt.get('note'),price:fdt.get('price')===''?null:+fdt.get('price'),src:OTA[fdt.get('src')]?fdt.get('src'):'direkt',pay:fdt.get('pay')||null});
-      const ps=f.querySelector('[name=pay]');const ota=OTA[m.r.src];ps.disabled=!!ota;ps.options[0].textContent=ota?ota.t+' · ödeme ayrı':'Ödeme seç';if(ota)ps.value='';
+      const ps=f.querySelector('[name=pay]');const ota=OTA[m.r.src];ps.disabled=!!ota;f.querySelector('#prow').hidden=!!ota;f.querySelector('#calc').hidden=!!ota;f.querySelector('#obox').hidden=!ota;if(ota)f.querySelector('#oname').textContent=ota.t;ps.options[0].textContent=ota?ota.t+' · ödeme ayrı':'Ödeme seç';if(ota)ps.value='';
       const p=price(m.r.s,m.r.e),c=m.r.s&&m.r.e?clash(m.r.room,m.r.s,m.r.e,m.id):[];
       f.querySelector('#calc').textContent=p.txt+(m.r.price!=null&&m.r.price!==p.t?' · elle girilen tutar kullanılacak':'');
       f.querySelector('[name=price]').placeholder=p.t;
@@ -487,7 +489,7 @@ function renderModal(){
     f.addEventListener('submit',ev=>{ev.preventDefault();f.dispatchEvent(new Event('input'));
       const r=m.r;if(!r.name.trim()||r.e<=r.s||clash(r.room,r.s,r.e,m.id).length)return;
       const id=m.id||uid(),old=m.id?S.res.get(m.id):null;
-      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:r.price!=null?r.price:price(r.s,r.e).t,st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS(),src:OTA[r.src]?r.src:'direkt',pay:OTA[r.src]?null:(r.pay||null)};
+      const rec={room:r.room,s:r.s,e:r.e,g:r.g||1,name:r.name.trim(),phone:r.phone.trim(),note:r.note.trim(),price:OTA[r.src]?null:(r.price!=null?r.price:price(r.s,r.e).t),st:old?old.st:'bekliyor',outAt:old?old.outAt||null:null,created:old?old.created:nowS(),src:OTA[r.src]?r.src:'direkt',pay:OTA[r.src]?null:(r.pay||null)};
       if(old&&old.sample)rec.sample=true;
       putRes(id,rec);S.modal={k:'detail',id,wa:!m.id};renderModal()})}
 }
